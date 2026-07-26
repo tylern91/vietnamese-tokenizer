@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn -B clean verify)",
+      "Bash(mvn -q -pl vietnamese-tokenizer-core test)",
+      "Bash(mvn -q -pl vietnamese-tokenizer-core test:*)",
+      "Bash(mvn -q -N install)",
+      "Bash(mvn -q -pl vietnamese-tokenizer-dicts install)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)"
+    ],
+    "deny": [
+      "Read(**/node_modules/**)",
+      "Read(**/target/**)"
+    ]
+  }
+}

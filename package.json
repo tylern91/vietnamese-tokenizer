@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "@nizos/probity": "^1.10.0"
+  }
+}
