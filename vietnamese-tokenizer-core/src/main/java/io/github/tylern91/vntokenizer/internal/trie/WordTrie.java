@@ -30,6 +30,41 @@ public final class WordTrie extends DoubleArrayTrie {
      * at {@code start}, returning its word id (or -1 if none matches).
      */
     public int longestWordFrom(int[] codepoints, int start) {
-        throw new UnsupportedOperationException("Not yet implemented — Phase 4");
+        int node = 0;
+        int bestWordId = -1;
+        for (int i = start; i < codepoints.length; i++) {
+            node = findChild(node, codepoints[i]);
+            if (node == -1) {
+                break;
+            }
+            if (isWordEnd(node)) {
+                bestWordId = wordIdAt(node);
+            }
+        }
+        return bestWordId;
+    }
+
+    /**
+     * Emits every word matching a prefix of {@code codepoints} starting at
+     * {@code start} — not just the longest — for lattice construction. Each
+     * match reports the exclusive end position and the matched word's id.
+     */
+    public void matchesFrom(int[] codepoints, int start, MatchSink sink) {
+        int node = 0;
+        for (int i = start; i < codepoints.length; i++) {
+            node = findChild(node, codepoints[i]);
+            if (node == -1) {
+                break;
+            }
+            if (isWordEnd(node)) {
+                sink.onMatch(i + 1, wordIdAt(node));
+            }
+        }
+    }
+
+    /** Receives one {@code (endExclusive, wordId)} pair per match found by {@link #matchesFrom}. */
+    @FunctionalInterface
+    public interface MatchSink {
+        void onMatch(int endExclusive, int wordId);
     }
 }

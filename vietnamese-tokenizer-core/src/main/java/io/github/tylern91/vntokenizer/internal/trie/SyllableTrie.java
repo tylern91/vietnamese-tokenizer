@@ -21,6 +21,13 @@ public final class SyllableTrie extends DoubleArrayTrie {
      * Checks whether {@code codepoints[start, end)} is a valid syllable.
      */
     public boolean containsSyllable(int[] codepoints, int start, int end) {
-        throw new UnsupportedOperationException("Not yet implemented — Phase 4");
+        int node = 0;
+        for (int i = start; i < end; i++) {
+            node = findChild(node, codepoints[i]);
+            if (node == -1) {
+                return false;
+            }
+        }
+        return isSyllableEnd(node);
     }
 }

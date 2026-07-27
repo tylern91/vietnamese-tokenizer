@@ -59,9 +59,40 @@ class SyllableTrieTest {
     }
 
     @Test
-    void containsSyllableThrowsUnsupported() {
+    void containsSyllableExactSpanIsTrue() {
         int[] codepoints = {'b', 'a', 'n'};
-        assertThrows(UnsupportedOperationException.class,
-                () -> trie.containsSyllable(codepoints, 0, 3));
+        assertTrue(trie.containsSyllable(codepoints, 0, 3));
+    }
+
+    @Test
+    void containsSyllablePartialSpanIsFalseWhenNotTerminal() {
+        int[] codepoints = {'b', 'a', 'n'};
+        // span [0,1) is just "b" — a prefix node, not a syllable end.
+        assertFalse(trie.containsSyllable(codepoints, 0, 1));
+    }
+
+    @Test
+    void containsSyllableTerminalPrefixOfLongerWordIsTrue() {
+        int[] codepoints = {'b', 'a', 'n'};
+        // span [0,2) is "ba" — itself a terminal node, even though "ban" also exists.
+        assertTrue(trie.containsSyllable(codepoints, 0, 2));
+    }
+
+    @Test
+    void containsSyllableNoMatchIsFalse() {
+        int[] codepoints = {'z', 'z'};
+        assertFalse(trie.containsSyllable(codepoints, 0, 2));
+    }
+
+    @Test
+    void containsSyllableDeadEndMidSpanIsFalse() {
+        int[] codepoints = {'b', 'a', 'x'};
+        assertFalse(trie.containsSyllable(codepoints, 0, 3));
+    }
+
+    @Test
+    void containsSyllableRespectsStartOffset() {
+        int[] codepoints = {'x', 'x', 'c', 'a'};
+        assertTrue(trie.containsSyllable(codepoints, 2, 4));
     }
 }
