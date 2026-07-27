@@ -1,0 +1,33 @@
+NOTICE
+======
+
+This module's compiled dictionary resources (words.txt.gz, syllables.txt.gz,
+bigrams.txt.gz) were derived from the two sources below, both licensed under
+the Creative Commons Attribution-ShareAlike 4.0 International License
+(CC BY-SA 4.0): https://creativecommons.org/licenses/by-sa/4.0/
+
+1. Vietnamese-language Wiktionary (viwiktionary), Wikimedia Foundation
+   Source URL: https://dumps.wikimedia.org/viwiktionary/latest/viwiktionary-latest-pages-articles.xml.bz2
+   Resolved dump run: 20260701
+     (http://download.wikimedia.org/viwiktionary/20260701/viwiktionary-20260701-pages-articles.xml.bz2,
+     pubDate Thu, 02 Jul 2026 18:11:15 GMT)
+   License: dual GFDL / CC BY-SA 4.0 (per https://dumps.wikimedia.org/legal.html);
+     this project uses it under CC BY-SA 4.0.
+   Content used: page titles (main/article namespace, ns=0 only), used as a
+     seed candidate list for multi-syllable Vietnamese compound words.
+
+2. UVW-2026 dataset (undertheseanlp/UVW-2026), Underthesea Vietnamese NLP project
+   Source URL: https://huggingface.co/datasets/undertheseanlp/UVW-2026
+   Revision (commit): a0a79294e4568137e25828bb3f2a4cde8546e1fb
+   License: CC BY-SA 4.0 (per the dataset's README.md front matter
+     `license: cc-by-sa-4.0`), consistent with the underlying Wikipedia content
+     license it was built from.
+   Content used: `data/train.jsonl` title/content text, used to build the
+     syllable inventory and, for quality-filtered lines, word/bigram frequency
+     counts via bootstrap greedy longest-match segmentation.
+
+No modifications were made to the licensed text itself beyond standard NLP
+preprocessing (Unicode NFC normalization, lowercasing, tokenization, frequency
+counting); the derived word/syllable/bigram lists in this directory are
+themselves distributed under the same CC BY-SA 4.0 terms as a share-alike
+derivative work.
