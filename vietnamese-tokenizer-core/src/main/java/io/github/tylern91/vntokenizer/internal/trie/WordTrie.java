@@ -28,12 +28,15 @@ public final class WordTrie extends DoubleArrayTrie {
     /**
      * Finds the longest word matching a prefix of {@code codepoints} starting
      * at {@code start}, returning its word id (or -1 if none matches).
+     *
+     * <p>Matching folds case since dictionary entries are stored lowercase but real
+     * Vietnamese text capitalizes proper nouns and sentence-initial letters.
      */
     public int longestWordFrom(int[] codepoints, int start) {
         int node = 0;
         int bestWordId = -1;
         for (int i = start; i < codepoints.length; i++) {
-            node = findChild(node, codepoints[i]);
+            node = findChild(node, Character.toLowerCase(codepoints[i]));
             if (node == -1) {
                 break;
             }
@@ -52,7 +55,7 @@ public final class WordTrie extends DoubleArrayTrie {
     public void matchesFrom(int[] codepoints, int start, MatchSink sink) {
         int node = 0;
         for (int i = start; i < codepoints.length; i++) {
-            node = findChild(node, codepoints[i]);
+            node = findChild(node, Character.toLowerCase(codepoints[i]));
             if (node == -1) {
                 break;
             }

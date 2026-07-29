@@ -149,4 +149,23 @@ class WordTrieTest {
         assertEquals(1, matches.size());
         assertArrayEquals(new int[] {2, 1}, matches.get(0)); // "ca" ends at 2, id 1
     }
+
+    // ---- case-insensitive matching (dictionary entries are stored lowercase) ------------
+
+    @Test
+    void longestWordFromIsCaseInsensitive() {
+        int[] codepoints = {'B', 'A', 'N'};
+        assertEquals(2, trie.longestWordFrom(codepoints, 0));
+    }
+
+    @Test
+    void matchesFromIsCaseInsensitive() {
+        int[] codepoints = {'B', 'A', 'N'};
+        List<int[]> matches = new ArrayList<>();
+        trie.matchesFrom(codepoints, 0, (endExclusive, wordId) -> matches.add(new int[] {endExclusive, wordId}));
+
+        assertEquals(2, matches.size());
+        assertArrayEquals(new int[] {2, 0}, matches.get(0)); // "ba" ends at 2, id 0
+        assertArrayEquals(new int[] {3, 2}, matches.get(1)); // "ban" ends at 3, id 2
+    }
 }

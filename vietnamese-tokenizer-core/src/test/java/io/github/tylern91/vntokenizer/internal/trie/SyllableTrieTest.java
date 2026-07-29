@@ -95,4 +95,12 @@ class SyllableTrieTest {
         int[] codepoints = {'x', 'x', 'c', 'a'};
         assertTrue(trie.containsSyllable(codepoints, 2, 4));
     }
+
+    @Test
+    void containsSyllableIsCaseInsensitive() {
+        // Dictionary entries are stored lowercase; real Vietnamese text capitalizes proper
+        // nouns and sentence-initial letters, so lookup must fold case.
+        int[] codepoints = {'B', 'A', 'N'};
+        assertTrue(trie.containsSyllable(codepoints, 0, 3));
+    }
 }

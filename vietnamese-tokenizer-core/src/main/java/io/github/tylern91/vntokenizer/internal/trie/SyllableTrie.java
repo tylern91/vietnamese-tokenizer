@@ -19,11 +19,14 @@ public final class SyllableTrie extends DoubleArrayTrie {
 
     /**
      * Checks whether {@code codepoints[start, end)} is a valid syllable.
+     *
+     * <p>Matching folds case since dictionary entries are stored lowercase but real
+     * Vietnamese text capitalizes proper nouns and sentence-initial letters.
      */
     public boolean containsSyllable(int[] codepoints, int start, int end) {
         int node = 0;
         for (int i = start; i < end; i++) {
-            node = findChild(node, codepoints[i]);
+            node = findChild(node, Character.toLowerCase(codepoints[i]));
             if (node == -1) {
                 return false;
             }

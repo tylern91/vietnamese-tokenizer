@@ -1,5 +1,7 @@
 package io.github.tylern91.vntokenizer.internal.score;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -22,7 +24,11 @@ public final class BigramScores {
     }
 
     public static BigramScores of(Map<Long, Float> scores) {
-        return new BigramScores(Map.copyOf(scores));
+        // Map.copyOf builds a linear-probing ImmutableCollections.MapN with no treeification;
+        // at corpus scale (millions of entries) the packed-long keys' degenerate hashCode
+        // distribution (see key()) causes catastrophic probe-chain blowup. HashMap tolerates
+        // this fine via bucket treeification.
+        return new BigramScores(Collections.unmodifiableMap(new HashMap<>(scores)));
     }
 
     /**

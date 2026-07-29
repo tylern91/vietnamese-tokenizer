@@ -111,6 +111,32 @@ public class GenerateDicts {
     private static final Pattern LETTER_RUN = Pattern.compile("[" + VN_LETTERS + "]+");
     private static final Pattern WHITESPACE = Pattern.compile("\\s+");
 
+    /** Vowel letters only (the tone-form vowel half of {@link #VN_LETTERS}), used by the
+     *  syllable-nucleus check in {@link #isPlausibleSyllable(String)}. */
+    private static final String VOWELS =
+            "aàáảãạăằắẳẵặâầấẩẫậeèéẻẽẹêềếểễệiìíỉĩịoòóỏõọôồốổỗộơờớởỡợuùúủũụưừứửữựyỳýỷỹỵ";
+
+    /** Valid Vietnamese syllable onsets (initial consonant sounds), longest-first grouping
+     *  doesn't matter here since {@link #isPlausibleSyllable(String)} tries every length. */
+    private static final Set<String> VALID_ONSETS = Set.of(
+            "ngh", "ch", "gh", "gi", "kh", "ng", "nh", "ph", "qu", "th", "tr",
+            "b", "c", "d", "đ", "g", "h", "k", "l", "m", "n", "p", "r", "s", "t", "v", "x");
+
+    /** Valid Vietnamese syllable codas (finals); semivowel offglides (i/y/o/u) are treated
+     *  as part of the vowel nucleus instead of as a separate coda. */
+    private static final Set<String> VALID_CODAS = Set.of("ch", "ng", "nh", "c", "m", "n", "p", "t");
+
+    /** Valid vowel-nucleus skeletons (tone marks stripped via {@link #baseVowel(char)}) --
+     *  monophthongs plus the closed set of Vietnamese diphthongs/triphthongs. A bare run of
+     *  vowel *characters* isn't sufficient (e.g. "aa", "aae" use only vowel letters but are
+     *  not real Vietnamese nuclei), so this whitelist checks the actual vowel skeleton. */
+    private static final Set<String> VALID_NUCLEI = Set.of(
+            "a", "ă", "â", "e", "ê", "i", "o", "ô", "ơ", "u", "ư", "y",
+            "ai", "ao", "au", "ay", "âu", "ây", "eo", "êu", "ia", "iê", "iu",
+            "oa", "oă", "oe", "oi", "oo", "ôi", "ôô", "ơi",
+            "ua", "uâ", "uê", "ui", "uô", "uơ", "uy", "ưa", "ươ", "ưi", "ưu", "yê",
+            "iêu", "oai", "oay", "oeo", "uây", "uôi", "ươi", "ươu", "uya", "uyê", "uyu", "yêu");
+
     public static void main(String[] args) throws Exception {
         long t0 = System.currentTimeMillis();
         log("dicts module dir: " + DICTS_MODULE_DIR);
@@ -284,8 +310,69 @@ public class GenerateDicts {
             return;
         }
         for (String tok : tokenizeLetters(normalize(rawText))) {
-            sink.add(tok);
+            if (isPlausibleSyllable(tok)) {
+                sink.add(tok);
+            }
         }
+    }
+
+    /**
+     * Approximates Vietnamese syllable phonotactics -- optional onset + a 1-3
+     * letter vowel nucleus + optional coda -- to reject non-Vietnamese letter
+     * runs that happen to use only the restricted 89-letter alphabet (English
+     * words, concatenated URL/domain slugs, etc). Tries every onset/coda length
+     * combination rather than a single greedy parse, since only *some* valid
+     * decomposition needs to exist for the token to be a plausible syllable.
+     * Not a complete grammar (loanwords and rare finals may be missed), but it
+     * eliminates the bulk of non-syllable noise from the UVW-2026 corpus.
+     */
+    private static boolean isPlausibleSyllable(String s) {
+        int len = s.length();
+        if (len == 0 || len > 8) {
+            return false;
+        }
+        for (int onsetLen = 0; onsetLen <= Math.min(3, len); onsetLen++) {
+            if (onsetLen > 0 && !VALID_ONSETS.contains(s.substring(0, onsetLen))) {
+                continue;
+            }
+            for (int codaLen = 0; codaLen <= Math.min(2, len - onsetLen); codaLen++) {
+                if (codaLen > 0 && !VALID_CODAS.contains(s.substring(len - codaLen))) {
+                    continue;
+                }
+                int nucleusLen = len - onsetLen - codaLen;
+                if (nucleusLen < 1 || nucleusLen > 3) {
+                    continue;
+                }
+                if (isValidNucleus(s.substring(onsetLen, onsetLen + nucleusLen))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Strips the tone mark from a vowel character, returning its toneless base form,
+     *  or {@code null} if {@code c} isn't a vowel at all. Each base vowel occupies a
+     *  contiguous run of 6 tone variants (none, grave, acute, hook, tilde, dot-below)
+     *  within {@link #VOWELS}. */
+    private static Character baseVowel(char c) {
+        int idx = VOWELS.indexOf(c);
+        if (idx < 0) {
+            return null;
+        }
+        return VOWELS.charAt((idx / 6) * 6);
+    }
+
+    private static boolean isValidNucleus(String s) {
+        StringBuilder base = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            Character b = baseVowel(s.charAt(i));
+            if (b == null) {
+                return false;
+            }
+            base.append(b.charValue());
+        }
+        return VALID_NUCLEI.contains(base.toString());
     }
 
     // ---------------------------------------------------------------
