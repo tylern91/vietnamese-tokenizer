@@ -50,6 +50,13 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.13.0</version>
+                    <configuration>
+                        <compilerArgs>
+                            <!-- io.github.tylern91.* module names end in digits (GitHub username);
+                                 javac's module-name lint has no way to allowlist a specific name. -->
+                            <arg>-Xlint:-module</arg>
+                        </compilerArgs>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
