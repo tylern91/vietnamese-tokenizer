@@ -34,9 +34,6 @@ VnTokenizer tokenizer = VnTokenizer.getInstance();
 List<Token> tokens = tokenizer.tokenize("Tiếng Việt");
 ```
 
-> `tokenize()` is currently a stub (`UnsupportedOperationException`) — the Viterbi
-> decode pipeline that powers real tokenization lands in Phase 4.
-
 ## License
 
 Apache License, Version 2.0 — see [LICENSE](LICENSE).

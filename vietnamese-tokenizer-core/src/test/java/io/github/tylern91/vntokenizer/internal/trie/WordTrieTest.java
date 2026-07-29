@@ -4,6 +4,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Same fixture layout as {@link DoubleArrayTrieTest}: {"ba", "ban", "bat", "ca"}.
  * Word-end nodes (4=ba, 5=ca, 6=ban, 7=bat) each carry a word id; all other
@@ -76,10 +79,93 @@ class WordTrieTest {
         assertEquals(1, trie.wordIdAt(ca));
     }
 
+    // ---- longestWordFrom -----------------------------------------------------
+
     @Test
-    void longestWordFromThrowsUnsupported() {
+    void longestWordFromReturnsDeepestMatch() {
         int[] codepoints = {'b', 'a', 'n'};
-        assertThrows(UnsupportedOperationException.class,
-                () -> trie.longestWordFrom(codepoints, 0));
+        // "ba" and "ban" both match starting at 0; the deepest (ban, id 2) wins.
+        assertEquals(2, trie.longestWordFrom(codepoints, 0));
+    }
+
+    @Test
+    void longestWordFromStopsAtLongestNonMatchingTail() {
+        int[] codepoints = {'b', 'a', 'x'};
+        // "ba" matches (id 0); 'x' has no mapping so the walk stops there.
+        assertEquals(0, trie.longestWordFrom(codepoints, 0));
+    }
+
+    @Test
+    void longestWordFromNoMatchReturnsMinusOne() {
+        int[] codepoints = {'z'};
+        assertEquals(-1, trie.longestWordFrom(codepoints, 0));
+    }
+
+    @Test
+    void longestWordFromPrefixOnlyReturnsMinusOne() {
+        int[] codepoints = {'b'};
+        // "b" alone is a prefix node, never a word end.
+        assertEquals(-1, trie.longestWordFrom(codepoints, 0));
+    }
+
+    @Test
+    void longestWordFromRespectsStartOffset() {
+        int[] codepoints = {'x', 'x', 'c', 'a'};
+        assertEquals(1, trie.longestWordFrom(codepoints, 2));
+    }
+
+    @Test
+    void longestWordFromAtEndOfArrayReturnsMinusOne() {
+        int[] codepoints = {'b', 'a'};
+        assertEquals(-1, trie.longestWordFrom(codepoints, codepoints.length));
+    }
+
+    // ---- matchesFrom -----------------------------------------------------
+
+    @Test
+    void matchesFromEmitsEveryMatchNotJustLongest() {
+        int[] codepoints = {'b', 'a', 'n'};
+        List<int[]> matches = new ArrayList<>();
+        trie.matchesFrom(codepoints, 0, (endExclusive, wordId) -> matches.add(new int[] {endExclusive, wordId}));
+
+        assertEquals(2, matches.size());
+        assertArrayEquals(new int[] {2, 0}, matches.get(0)); // "ba" ends at 2, id 0
+        assertArrayEquals(new int[] {3, 2}, matches.get(1)); // "ban" ends at 3, id 2
+    }
+
+    @Test
+    void matchesFromNoMatchInvokesSinkZeroTimes() {
+        int[] codepoints = {'z'};
+        List<int[]> matches = new ArrayList<>();
+        trie.matchesFrom(codepoints, 0, (endExclusive, wordId) -> matches.add(new int[] {endExclusive, wordId}));
+        assertTrue(matches.isEmpty());
+    }
+
+    @Test
+    void matchesFromStopsWalkOnDeadEndButKeepsPriorMatches() {
+        int[] codepoints = {'c', 'a', 'x'};
+        List<int[]> matches = new ArrayList<>();
+        trie.matchesFrom(codepoints, 0, (endExclusive, wordId) -> matches.add(new int[] {endExclusive, wordId}));
+        assertEquals(1, matches.size());
+        assertArrayEquals(new int[] {2, 1}, matches.get(0)); // "ca" ends at 2, id 1
+    }
+
+    // ---- case-insensitive matching (dictionary entries are stored lowercase) ------------
+
+    @Test
+    void longestWordFromIsCaseInsensitive() {
+        int[] codepoints = {'B', 'A', 'N'};
+        assertEquals(2, trie.longestWordFrom(codepoints, 0));
+    }
+
+    @Test
+    void matchesFromIsCaseInsensitive() {
+        int[] codepoints = {'B', 'A', 'N'};
+        List<int[]> matches = new ArrayList<>();
+        trie.matchesFrom(codepoints, 0, (endExclusive, wordId) -> matches.add(new int[] {endExclusive, wordId}));
+
+        assertEquals(2, matches.size());
+        assertArrayEquals(new int[] {2, 0}, matches.get(0)); // "ba" ends at 2, id 0
+        assertArrayEquals(new int[] {3, 2}, matches.get(1)); // "ban" ends at 3, id 2
     }
 }

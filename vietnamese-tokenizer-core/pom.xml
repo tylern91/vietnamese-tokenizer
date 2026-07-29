@@ -8,7 +8,7 @@
     <parent>
         <groupId>io.github.tylern91</groupId>
         <artifactId>vietnamese-tokenizer-parent</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.2.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>vietnamese-tokenizer-core</artifactId>
@@ -26,7 +26,6 @@
             <groupId>io.github.tylern91</groupId>
             <artifactId>vietnamese-tokenizer-dicts</artifactId>
             <version>${project.version}</version>
-            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>
