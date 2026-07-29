@@ -33,8 +33,7 @@ import java.util.zip.GZIPOutputStream;
 /**
  * One-off offline ETL generator for the vietnamese-tokenizer-dicts compiled
  * resources. See vietnamese-tokenizer-dicts/generator/README (this header)
- * for pipeline design notes; the authoritative spec is Step 1 of the Phase 4
- * plan.
+ * for pipeline design notes and rationale.
  *
  * Inputs (already downloaded, verified, gitignored -- see raw-corpus/*\/PROVENANCE.md):
  *   - vietnamese-tokenizer-dicts/raw-corpus/wiktionary/viwiktionary-20260701-pages-articles.xml
@@ -95,7 +94,7 @@ public class GenerateDicts {
     private static final Path OUT_DIR = DICTS_MODULE_DIR.resolve(
             "src/main/resources/io/github/tylern91/vntokenizer/dicts");
 
-    /** quality >= this value is kept for the bootstrap segmentation pass (step 4).
+    /** quality >= this value is kept for the bootstrap segmentation pass.
      *  See report for the full quality histogram; quality=2 is dominated by short
      *  stub/navigation pages (e.g. the wiki front page: 471 chars, 1 sentence). */
     private static final int QUALITY_CUTOFF = 3;
@@ -145,33 +144,33 @@ public class GenerateDicts {
         log("output dir:       " + OUT_DIR + " exists=" + Files.exists(OUT_DIR));
         Files.createDirectories(OUT_DIR);
 
-        // Step 1: Wiktionary multi-syllable title candidates (ns=0 only).
+        // Wiktionary multi-syllable title candidates (ns=0 only).
         long t1 = System.currentTimeMillis();
         Set<String> wiktionaryWords = parseWiktionaryTitles(WIKTIONARY_XML);
         long t2 = System.currentTimeMillis();
-        log("step1 wiktionary titles: " + wiktionaryWords.size() + " multi-syllable candidates in "
+        log("wiktionary titles: " + wiktionaryWords.size() + " multi-syllable candidates in "
                 + (t2 - t1) + " ms");
 
-        // Step 2: syllable inventory from ALL uvw2026 lines (title + content), unfiltered by quality.
+        // Syllable inventory from ALL uvw2026 lines (title + content), unfiltered by quality.
         Set<String> syllables = buildSyllableInventory(UVW_JSONL);
         long t3 = System.currentTimeMillis();
-        log("step2 syllable inventory: " + syllables.size() + " distinct syllables in " + (t3 - t2) + " ms");
+        log("syllable inventory: " + syllables.size() + " distinct syllables in " + (t3 - t2) + " ms");
 
-        // Step 3: filter wiktionary candidates down to those whose every syllable is attested.
+        // Filter wiktionary candidates down to those whose every syllable is attested.
         Set<String> filteredWords = filterWords(wiktionaryWords, syllables);
         int maxSyllables = maxSyllableCount(filteredWords);
         long t4 = System.currentTimeMillis();
-        log("step3 filtered word list: " + filteredWords.size() + " words (maxSyllables=" + maxSyllables
+        log("filtered word list: " + filteredWords.size() + " words (maxSyllables=" + maxSyllables
                 + ") in " + (t4 - t3) + " ms");
 
-        // Step 4: bootstrap greedy longest-match segmentation over quality-filtered lines.
+        // Bootstrap greedy longest-match segmentation over quality-filtered lines.
         SegmentationResult seg = runSegmentation(UVW_JSONL, filteredWords, maxSyllables, QUALITY_CUTOFF);
         long t5 = System.currentTimeMillis();
-        log("step4 segmentation: kept " + seg.linesKept + "/" + seg.linesTotal + " lines, "
+        log("segmentation: kept " + seg.linesKept + "/" + seg.linesTotal + " lines, "
                 + seg.unigram.size() + " distinct words counted, " + seg.bigram.size()
                 + " distinct bigrams, in " + (t5 - t4) + " ms");
 
-        // Step 5: assemble + write.
+        // Assemble + write output files.
         TreeMap<String, Integer> finalWords = new TreeMap<>();
         int flooredCount = 0;
         for (String w : filteredWords) {
@@ -195,7 +194,7 @@ public class GenerateDicts {
         writeNotice(noticeOut);
 
         long t6 = System.currentTimeMillis();
-        log("step5 write: " + (t6 - t5) + " ms");
+        log("write: " + (t6 - t5) + " ms");
         log("TOTAL wall clock: " + (t6 - t0) + " ms (" + String.format(Locale.ROOT, "%.1f", (t6 - t0) / 1000.0)
                 + " s)");
 
@@ -204,7 +203,7 @@ public class GenerateDicts {
             log("  " + p.getFileName() + ": " + Files.size(p) + " bytes");
         }
 
-        // Spot checks requested in the plan.
+        // Spot checks for known compound words.
         log("spot check (present in finalWords?):");
         for (String probe : List.of("hà nội", "việt nam", "học sinh", "xin chào")) {
             Integer freq = finalWords.get(probe);
@@ -213,7 +212,7 @@ public class GenerateDicts {
     }
 
     // ---------------------------------------------------------------
-    // Step 1: Wiktionary XML -> multi-syllable title candidates
+    // Wiktionary XML -> multi-syllable title candidates
     // ---------------------------------------------------------------
 
     private static Set<String> parseWiktionaryTitles(Path xmlPath) throws Exception {
@@ -280,7 +279,7 @@ public class GenerateDicts {
     private static final Pattern WHITESPACE_ANYWHERE = Pattern.compile("\\s");
 
     // ---------------------------------------------------------------
-    // Step 2: syllable inventory from ALL uvw2026 lines
+    // Syllable inventory from ALL uvw2026 lines
     // ---------------------------------------------------------------
 
     private static Set<String> buildSyllableInventory(Path jsonlPath) throws IOException {
@@ -376,7 +375,7 @@ public class GenerateDicts {
     }
 
     // ---------------------------------------------------------------
-    // Step 3: filter
+    // Filter
     // ---------------------------------------------------------------
 
     private static Set<String> filterWords(Set<String> wiktionaryWords, Set<String> syllables) {
@@ -414,7 +413,7 @@ public class GenerateDicts {
     }
 
     // ---------------------------------------------------------------
-    // Step 4: bootstrap greedy longest-match segmentation
+    // Bootstrap greedy longest-match segmentation
     // ---------------------------------------------------------------
 
     private static final class SegmentationResult {

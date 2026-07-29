@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * {@code PER_CLASS} + {@code @AfterAll} reset (rather than {@code @AfterEach}) so the bundled
- * singleton's real dictionary load (~30s against the full corpus, see Step 4) is paid once for
+ * singleton's real dictionary load (~30s against the full corpus) is paid once for
  * the whole class instead of once per test.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)

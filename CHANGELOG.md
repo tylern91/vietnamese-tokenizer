@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Real dictionary-based Viterbi word segmentation, replacing the Phase 1 tokenization stubs.
+- Real dictionary-based Viterbi word segmentation, replacing the earlier tokenization stubs.
 - `vietnamese-tokenizer-dicts`: bundled Vietnamese Wiktionary + UVW-2026 derived dictionary data (`words.txt.gz`, `syllables.txt.gz`, `bigrams.txt.gz`), CC BY-SA 4.0, with `NOTICE` attribution.
 - `DoubleArrayTrieBuilder`: builds `WordTrie`/`SyllableTrie` double-array tries from the bundled dictionaries.
 - `WordTrie.longestWordFrom` / `matchesFrom` and `SyllableTrie.containsSyllable` query primitives, case-insensitive at lookup.
@@ -30,8 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Initial Phase 1 scaffold: Maven multi-module JPMS project (`vietnamese-tokenizer-core`, `vietnamese-tokenizer-dicts`).
-- Public API: `Token`, `TokenizeOption`, `VnTokenizer` facade (tokenization stubs deferred to Phase 4).
+- Initial scaffold: Maven multi-module JPMS project (`vietnamese-tokenizer-core`, `vietnamese-tokenizer-dicts`).
+- Public API: `Token`, `TokenizeOption`, `VnTokenizer` facade (tokenization stubs deferred to a later change).
 - Internal data structures: `DoubleArrayTrie`, `WordTrie`, `SyllableTrie`, `BigramScores`.
 - `VnNormalizer`: Vietnamese Unicode NFD→NFC normalizer.
 - CI workflow (GitHub Actions, Temurin 21, `mvn -B clean verify`).

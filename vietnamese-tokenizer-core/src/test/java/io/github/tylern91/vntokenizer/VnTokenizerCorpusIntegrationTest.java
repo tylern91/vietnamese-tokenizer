@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Corpus-backed end-to-end checks against the real bundled dictionary (Step 7) — as opposed
+ * Corpus-backed end-to-end checks against the real bundled dictionary — as opposed
  * to {@link VnTokenizerTest}'s structural assertions against a controlled fixture.
  */
 class VnTokenizerCorpusIntegrationTest {

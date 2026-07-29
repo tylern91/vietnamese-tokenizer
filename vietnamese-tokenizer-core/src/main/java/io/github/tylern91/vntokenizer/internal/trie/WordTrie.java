@@ -2,7 +2,7 @@ package io.github.tylern91.vntokenizer.internal.trie;
 
 /**
  * Word-lookup trie: each terminal node carries a word identity for use by
- * later bigram scoring (Phase 4).
+ * bigram scoring during decode.
  */
 public final class WordTrie extends DoubleArrayTrie {
 

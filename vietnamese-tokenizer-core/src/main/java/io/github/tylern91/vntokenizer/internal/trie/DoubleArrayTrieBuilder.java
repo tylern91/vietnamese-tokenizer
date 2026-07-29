@@ -34,8 +34,8 @@ public final class DoubleArrayTrieBuilder {
 
     /**
      * @param words sorted, duplicate-free words; each word's {@code wordId} is
-     *              its index in this list (Step 4's loader keys unigram
-     *              frequencies by this same index).
+     *              its index in this list ({@link io.github.tylern91.vntokenizer.internal.dict.DictLoader}
+     *              keys unigram frequencies by this same index).
      */
     public static WordTrie buildWordTrie(List<String> words) {
         validateSortedNoDuplicates(words);
