@@ -10,7 +10,7 @@ Multi-module Maven / JPMS Java 21 library. Module: `io.github.tylern91.vntokeniz
   `io.github.tylern91.vntokenizer.internal.{trie,score,norm}` and must **not**
   be added to `module-info.java` exports.
 - `vietnamese-tokenizer-dicts` — bundled dictionary data, packaged as a jar
-  consumed by `core` at test scope.
+  consumed by `core` at compile scope.
 
 ## Build
 
