@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Trie matching was case-sensitive against an all-lowercase dictionary, causing capitalized Vietnamese proper nouns (e.g. "Hà Nội") to silently fail dictionary lookup and fall back to OOV. Fixed by folding to lowercase at lookup time only; output token text still preserves original casing.
 - `HOST_PATTERN`'s unbounded `(?:...)+` repetition caused a `StackOverflowError` on input with thousands of dot-separated labels (`TokenizeOption.HOST`), since Java's regex engine implements repetition via recursive backtracking. Bounded the repetition counts to RFC 1035 hostname structural limits (`{1,63}` per label, `{1,127}` labels, `{2,63}` for the TLD).
 - `ViterbiSegmenter`'s OOV fallback re-scanned to the next whitespace character from every position in a whitespace-free run, an O(n²) blowup on long runs of unrecognized text. Fixed by precomputing a `nextWhitespace[]` lookup array in one O(n) pass.
+- `VnTokenizer.segmentWithAtoms` (`HOST`/`URL` modes) indexed the codepoint array using the regex `Matcher`'s raw `start()`/`end()` offsets, which are UTF-16 char offsets, not codepoint offsets. Any supplementary-plane codepoint (e.g. an emoji) preceding a matched URL/host desynced the two index spaces, corrupting subsequent token text. Fixed by converting via `String.codePointCount` before indexing.
 
 ## [0.1.0] - 2026-07-26
 

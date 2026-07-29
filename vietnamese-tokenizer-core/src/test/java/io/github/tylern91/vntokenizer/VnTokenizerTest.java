@@ -138,6 +138,22 @@ class VnTokenizerTest {
     }
 
     @Test
+    void urlModeHandlesSupplementaryPlaneCodepointBeforeAtomWithoutCorruption() {
+        VnTokenizer t = VnTokenizer.getInstance();
+        // U+1F600 (😀) is a supplementary-plane codepoint: 1 codepoint but 2 UTF-16 chars,
+        // so a char-offset/codepoint-offset mixup surfaces as soon as it precedes a URL match.
+        String text = "😀https://example.com";
+
+        List<Token> tokens = t.tokenize(text, TokenizeOption.URL);
+
+        StringBuilder rebuilt = new StringBuilder();
+        for (Token token : tokens) {
+            rebuilt.append(token.text());
+        }
+        assertEquals(text, rebuilt.toString());
+    }
+
+    @Test
     void hostModeDoesNotStackOverflowOnManyDottedLabels() {
         VnTokenizer t = VnTokenizer.getInstance();
         StringBuilder manyLabels = new StringBuilder();

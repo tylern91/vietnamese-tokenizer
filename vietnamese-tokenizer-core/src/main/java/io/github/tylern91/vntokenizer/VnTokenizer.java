@@ -17,9 +17,11 @@ public final class VnTokenizer {
     private static final Path BUNDLED_SENTINEL = Path.of("__bundled__");
     private static final ConcurrentHashMap<Path, VnTokenizer> CACHE = new ConcurrentHashMap<>();
 
-    // Matched against the normalized text rather than the raw input, so a match's UTF-16 char
-    // offset can double as a codepoint offset — safe because Vietnamese and URL/host syntax never
-    // use supplementary-plane characters.
+    // Matched against the normalized text rather than the raw input. Matcher.start()/end() return
+    // UTF-16 char offsets, not codepoint offsets, so segmentWithAtoms converts via
+    // String.codePointCount before using them as codepoint indices — needed because any
+    // supplementary-plane codepoint (emoji, etc.) anywhere earlier in the text desyncs char count
+    // from codepoint count, even though URL/host syntax itself never uses such codepoints.
     private static final Pattern URL_PATTERN =
             Pattern.compile("\\b(?:https?://|www\\.)\\S+", Pattern.CASE_INSENSITIVE);
     // Repetition counts bounded to RFC 1035 hostname structural limits (label <= 63 octets,
@@ -78,8 +80,8 @@ public final class VnTokenizer {
         List<Token> tokens = new ArrayList<>();
         int cursor = 0;
         while (matcher.find()) {
-            int start = matcher.start();
-            int end = matcher.end();
+            int start = text.codePointCount(0, matcher.start());
+            int end = text.codePointCount(0, matcher.end());
             tokens.addAll(segmentRange(normalized, cursor, start));
             tokens.add(new Token(matcher.group(), Token.Type.WORD, start, end));
             cursor = end;
