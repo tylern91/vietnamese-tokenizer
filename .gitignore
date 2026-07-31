@@ -34,6 +34,9 @@ package-lock.json
 # Personal Claude Code settings — .claude/settings.json is the shared/tracked config.
 .claude/settings.local.json
 
+# Agent-generated audit reports — scratch output, not a disposed/reconciled security record.
+.claude/audits/
+
 # Phase 4: raw corpus sources (Wiktionary dump, UVW-2026) — multi-GB, offline inputs to the
 # dicts compile pipeline. Only the compiled resources under dicts/src/main/resources are tracked.
 vietnamese-tokenizer-dicts/raw-corpus/
