@@ -8,13 +8,28 @@
     <parent>
         <groupId>io.github.tylern91</groupId>
         <artifactId>vietnamese-tokenizer-parent</artifactId>
-        <version>0.2.0-SNAPSHOT</version>
+        <version>0.2.0</version>
     </parent>
 
     <artifactId>vietnamese-tokenizer-dicts</artifactId>
 
     <name>Vietnamese Tokenizer Dictionaries</name>
-    <description>Resource-only JAR containing compiled dictionary files (populated in Phase 3)</description>
+    <description>Resource-only JAR containing compiled Vietnamese dictionary data (words, syllables, bigrams) for vietnamese-tokenizer-core</description>
+
+    <licenses>
+        <license>
+            <name>Creative Commons Attribution-ShareAlike 4.0 International</name>
+            <url>https://creativecommons.org/licenses/by-sa/4.0/</url>
+            <distribution>repo</distribution>
+            <comments>
+                This artifact contains compiled dictionary data derived from the Vietnamese
+                Wiktionary dump and undertheseanlp/UVW-2026, both licensed CC BY-SA 4.0 — not
+                the parent's Apache License, Version 2.0. Share-alike: works that redistribute
+                this data must carry the same license and attribution. See NOTICE
+                (io/github/tylern91/vntokenizer/dicts/NOTICE) for full attribution.
+            </comments>
+        </license>
+    </licenses>
 
     <build>
         <plugins>
@@ -35,6 +50,57 @@
                     <execution>
                         <id>default-test</id>
                         <phase>none</phase>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Only module-info.java lives here — no public/protected types for javadoc
+                 to document. Skip the real run and attach a NOTICE-only placeholder jar
+                 instead; Central explicitly permits placeholder javadoc jars. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-placeholder-javadoc</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/placeholder-javadoc</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>src/main/resources/io/github/tylern91/vntokenizer/dicts</directory>
+                                    <includes>
+                                        <include>NOTICE</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>placeholder-javadoc-jar</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                        <configuration>
+                            <classifier>javadoc</classifier>
+                            <classesDirectory>${project.build.directory}/placeholder-javadoc</classesDirectory>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
