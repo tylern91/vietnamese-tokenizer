@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Maven Central publishing config: `<scm>`/`<developers>` metadata, source and javadoc plugins, and a `release` Maven profile (GPG signing + `central-publishing-maven-plugin`).
+- `vietnamese-tokenizer-dicts`: corrected `<licenses>` to CC BY-SA 4.0 (was inheriting the parent's Apache-2.0 declaration) and a placeholder javadoc jar, since the module has no Java sources to document.
+- `.github/workflows/release.yml`: label-driven release pipeline (`major`/`minor`/`patch`/`skip-release`/`breaking-change` labels) that tags, publishes a GitHub Release, and — once `CENTRAL_PUBLISH_ENABLED` is flipped on — deploys to Maven Central and uploads release assets.
+- `.github/workflows/ci.yml`: a `version-sync` check verifying the poms and `CHANGELOG.md` agree on version, run as its own required status alongside the existing build.
+- `scripts/bump-version.sh`, `scripts/build-release-notes.sh`, `scripts/check-version-sync.sh`: the version-bump and release-notes tooling backing the release workflow.
+- Probity TDD gate tuning: widened the validator's transcript window, added project-specific facts closing a broken-build/red-test ambiguity, and added deterministic regex guards (`internal.*` packages must stay unexported; commits must not bypass GPG signing or hooks).
+- README rewrite: installation coordinates, usage examples with real tokenizer output, and dictionary-data attribution.
+
+### Fixed
+
+- `.gitignore` no longer tracks stale tdd-guard predecessor state (`.claude/tdd-guard/`) and now ignores `.claude/audits/` (agent-generated scratch output).
+
 ## [0.2.0] - 2026-07-29
 
 ### Added
