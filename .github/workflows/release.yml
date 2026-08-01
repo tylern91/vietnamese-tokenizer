@@ -90,7 +90,7 @@ jobs:
         run: |
           size="$(tr -d '[:space:]' < /tmp/RELEASE_BODY.md | wc -c | tr -d ' ')"
           if [ "$size" -lt 10 ]; then
-            echo "::notice::[Unreleased] section is empty — skipping tag + release"
+            echo "::notice::CHANGELOG.md has no ## [${{ steps.ver.outputs.next }}] section — skipping tag + release"
             printf 'empty=true\n' >> "$GITHUB_OUTPUT"
           else
             printf 'empty=false\n' >> "$GITHUB_OUTPUT"
