@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `release.yml`: the empty-notes diagnostic now names the missing `## [<tag>]` heading instead of blaming `[Unreleased]`, which was dead code since `--from-existing` is always passed.
 - `pom.xml`: pinned `maven-resources-plugin`'s version in `<pluginManagement>`, closing a Maven "malformed project" warning against the dicts module's placeholder-javadoc-jar plugin declaration.
 - Added Javadoc to the public API (`Token`, `TokenizeOption`, `VnTokenizer`, `module-info.java`), closing the 17 `javadoc:jar` "no comment" / missing-tag warnings CI's build job was emitting.
+- `pom.xml`: disabled `maven-javadoc-plugin`'s `detectOfflineLinks`, closing a "fake javadoc directory" warning and accompanying "Error fetching link" against the dicts module, whose javadoc generation is intentionally skipped.
 
 ## [0.2.0] - 2026-07-29
 

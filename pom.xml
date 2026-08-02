@@ -119,6 +119,11 @@
                     <version>3.11.2</version>
                     <configuration>
                         <release>21</release>
+                        <!-- dicts has no public types to document (skip=true in its own pom);
+                             without this, core's javadoc tries to auto-link to dicts's javadoc
+                             output and, finding none, logs a "fake javadoc directory" warning
+                             plus an "Error fetching link" that Maven ignores. -->
+                        <detectOfflineLinks>false</detectOfflineLinks>
                     </configuration>
                 </plugin>
             </plugins>
