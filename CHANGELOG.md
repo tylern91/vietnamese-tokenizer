@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `pom.xml`: Central deployments now auto-publish (`autoPublish`) and the build waits for the
+  artifact to go live (`waitUntil=published`), so a release no longer stalls in the Portal awaiting
+  a manual click and CI green now means genuinely published.
+- `pom.xml`: named Central deployments `vietnamese-tokenizer <version>` instead of the default
+  `Deployment`, which made concurrent Portal entries indistinguishable.
+
 ---
 
 ## [0.2.1] - 2026-08-02

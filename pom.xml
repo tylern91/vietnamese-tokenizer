@@ -188,8 +188,12 @@
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
-                            <autoPublish>false</autoPublish>
-                            <waitUntil>validated</waitUntil>
+                            <deploymentName>vietnamese-tokenizer ${project.version}</deploymentName>
+                            <autoPublish>true</autoPublish>
+                            <!-- `published` requires autoPublish; it makes the build wait for the artifact
+                                 to actually go live, so a publish-stage failure fails CI instead of passing
+                                 silently the way 0.2.1 did. -->
+                            <waitUntil>published</waitUntil>
                         </configuration>
                     </plugin>
                 </plugins>
