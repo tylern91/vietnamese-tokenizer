@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.gitignore` no longer tracks stale tdd-guard predecessor state (`.claude/tdd-guard/`) and now ignores `.claude/audits/` (agent-generated scratch output).
 - `build-release-notes.sh`: synced from the canonical dotfiles copy — release bodies now end with a commit/PR/full-changelog provenance footer, and `--from-existing` is recognized in any argument position instead of only its usual slot.
 - `release.yml`: the empty-notes diagnostic now names the missing `## [<tag>]` heading instead of blaming `[Unreleased]`, which was dead code since `--from-existing` is always passed.
+- `pom.xml`: pinned `maven-resources-plugin`'s version in `<pluginManagement>`, closing a Maven "malformed project" warning against the dicts module's placeholder-javadoc-jar plugin declaration.
+- Added Javadoc to the public API (`Token`, `TokenizeOption`, `VnTokenizer`, `module-info.java`), closing the 17 `javadoc:jar` "no comment" / missing-tag warnings CI's build job was emitting.
 
 ## [0.2.0] - 2026-07-29
 

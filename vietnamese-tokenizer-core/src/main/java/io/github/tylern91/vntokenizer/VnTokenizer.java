@@ -12,6 +12,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Dictionary-based Vietnamese word tokenizer.
+ *
+ * <p>Instances are obtained via {@link #getInstance()} or {@link #getInstance(Path)} and are safe
+ * to reuse and share across threads.
+ */
 public final class VnTokenizer {
 
     private static final Path BUNDLED_SENTINEL = Path.of("__bundled__");
@@ -38,18 +44,42 @@ public final class VnTokenizer {
         this.segmenter = new ViterbiSegmenter(dictionaries);
     }
 
+    /**
+     * Returns the shared instance backed by the dictionaries bundled with this library.
+     *
+     * @return the shared bundled-dictionary instance
+     */
     public static VnTokenizer getInstance() {
         return CACHE.computeIfAbsent(BUNDLED_SENTINEL, k -> new VnTokenizer(DictLoader.load()));
     }
 
+    /**
+     * Returns the shared instance backed by dictionaries loaded from {@code dictDir}.
+     *
+     * @param dictDir filesystem directory containing the dictionary resources
+     * @return the shared instance for {@code dictDir}
+     */
     public static VnTokenizer getInstance(Path dictDir) {
         return CACHE.computeIfAbsent(dictDir, k -> new VnTokenizer(DictLoader.load(dictDir)));
     }
 
+    /**
+     * Tokenizes {@code text} using {@link TokenizeOption#NORMAL}.
+     *
+     * @param text the text to tokenize
+     * @return the resulting tokens, in input order
+     */
     public List<Token> tokenize(String text) {
         return tokenize(text, TokenizeOption.NORMAL);
     }
 
+    /**
+     * Tokenizes {@code text}, applying {@code option}'s URL/host handling.
+     *
+     * @param text   the text to tokenize
+     * @param option controls whether URL- or host-shaped substrings stay atomic
+     * @return the resulting tokens, in input order
+     */
     public List<Token> tokenize(String text, TokenizeOption option) {
         int[] normalized = VnNormalizer.normalize(text.codePoints().toArray());
         return switch (option) {
@@ -59,6 +89,12 @@ public final class VnTokenizer {
         };
     }
 
+    /**
+     * Tokenizes {@code text} and returns each token's {@link Token#text()}.
+     *
+     * @param text the text to tokenize
+     * @return each resulting token's text, in input order
+     */
     public List<String> tokenizeToStrings(String text) {
         List<Token> tokens = tokenize(text);
         List<String> texts = new ArrayList<>(tokens.size());
