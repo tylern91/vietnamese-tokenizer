@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.2.1] - 2026-08-02
+
 ### Added
 
 - Maven Central publishing config: `<scm>`/`<developers>` metadata, source and javadoc plugins, and a `release` Maven profile (GPG signing + `central-publishing-maven-plugin`).
@@ -14,12 +18,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.github/workflows/release.yml`: label-driven release pipeline (`major`/`minor`/`patch`/`skip-release`/`breaking-change` labels) that tags, publishes a GitHub Release, and — once `CENTRAL_PUBLISH_ENABLED` is flipped on — deploys to Maven Central and uploads release assets.
 - `.github/workflows/ci.yml`: a `version-sync` check verifying the poms and `CHANGELOG.md` agree on version, run as its own required status alongside the existing build.
 - `scripts/bump-version.sh`, `scripts/build-release-notes.sh`, `scripts/check-version-sync.sh`: the version-bump and release-notes tooling backing the release workflow.
+- `.gitattributes`: marks the three bundled `*.gz` dictionaries and `*.jar` files as binary, so `core.autocrlf` or a future `text=auto` default can't byte-mangle them.
 - Probity TDD gate tuning: widened the validator's transcript window, added project-specific facts closing a broken-build/red-test ambiguity, and added deterministic regex guards (`internal.*` packages must stay unexported; commits must not bypass GPG signing or hooks).
 - README rewrite: installation coordinates, usage examples with real tokenizer output, and dictionary-data attribution.
 
 ### Fixed
 
 - `.gitignore` no longer tracks stale tdd-guard predecessor state (`.claude/tdd-guard/`) and now ignores `.claude/audits/` (agent-generated scratch output).
+- `build-release-notes.sh`: synced from the canonical dotfiles copy — release bodies now end with a commit/PR/full-changelog provenance footer, and `--from-existing` is recognized in any argument position instead of only its usual slot.
+- `release.yml`: the empty-notes diagnostic now names the missing `## [<tag>]` heading instead of blaming `[Unreleased]`, which was dead code since `--from-existing` is always passed.
+- `pom.xml`: pinned `maven-resources-plugin`'s version in `<pluginManagement>`, closing a Maven "malformed project" warning against the dicts module's placeholder-javadoc-jar plugin declaration.
+- Added Javadoc to the public API (`Token`, `TokenizeOption`, `VnTokenizer`, `module-info.java`), closing the 17 `javadoc:jar` "no comment" / missing-tag warnings CI's build job was emitting.
+- `pom.xml`: disabled `maven-javadoc-plugin`'s `detectOfflineLinks`, closing a "fake javadoc directory" warning and accompanying "Error fetching link" against the dicts module, whose javadoc generation is intentionally skipped.
 
 ## [0.2.0] - 2026-07-29
 
@@ -51,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI workflow (GitHub Actions, Temurin 21, `mvn -B clean verify`).
 - Probity-based TDD enforcement, project docs, and dev tooling config.
 
-[Unreleased]: https://github.com/tylern91/vietnamese-tokenizer/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/tylern91/vietnamese-tokenizer/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/tylern91/vietnamese-tokenizer/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/tylern91/vietnamese-tokenizer/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/tylern91/vietnamese-tokenizer/releases/tag/v0.1.0

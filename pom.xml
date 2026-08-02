@@ -7,7 +7,7 @@
 
     <groupId>io.github.tylern91</groupId>
     <artifactId>vietnamese-tokenizer-parent</artifactId>
-    <version>0.2.0</version>
+    <version>0.2.1</version>
     <packaging>pom</packaging>
 
     <name>Vietnamese Tokenizer Parent</name>
@@ -93,6 +93,11 @@
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>3.5.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-jar-plugin</artifactId>
                     <version>3.4.2</version>
                     <configuration>
@@ -114,6 +119,11 @@
                     <version>3.11.2</version>
                     <configuration>
                         <release>21</release>
+                        <!-- dicts has no public types to document (skip=true in its own pom);
+                             without this, core's javadoc tries to auto-link to dicts's javadoc
+                             output and, finding none, logs a "fake javadoc directory" warning
+                             plus an "Error fetching link" that Maven ignores. -->
+                        <detectOfflineLinks>false</detectOfflineLinks>
                     </configuration>
                 </plugin>
             </plugins>
