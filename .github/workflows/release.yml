@@ -11,6 +11,7 @@ permissions:
 concurrency:
   group: release-main
   cancel-in-progress: false
+  queue: max
 
 jobs:
   release:
@@ -174,15 +175,12 @@ jobs:
     needs: release
     if: needs.release.outputs.created == 'true' && vars.CENTRAL_PUBLISH_ENABLED == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+    environment: central
     permissions:
       contents: write
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       VERSION: ${{ needs.release.outputs.version }}
-      CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
-      CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
-      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
     steps:
       - uses: actions/checkout@v7
@@ -204,7 +202,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-          cache: maven
           server-id: central
           server-username: CENTRAL_USERNAME
           server-password: CENTRAL_PASSWORD
@@ -217,15 +214,17 @@ jobs:
         run: |
           set -euo pipefail
           want="${VERSION#v}"
-          got="$(mvn -B -q -f pom.xml help:evaluate -Dexpression=project.version -DforceStdout)"
+          got="$(mvn -B -q -f pom.xml -Dmaven.repo.local="$RUNNER_TEMP/m2" help:evaluate -Dexpression=project.version -DforceStdout)"
           if [ "$got" != "$want" ]; then
             echo "::error::pom.xml reports version '$got' but release tag is '$want'"
             exit 1
           fi
           echo "pom.xml version '$got' matches release tag '$want'"
 
-      - name: Build, sign, and publish to Central
-        run: mvn -B clean deploy -Prelease -Dgpg.passphrase="$GPG_PASSPHRASE"
+      - name: Build, sign, and verify
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: mvn -B clean verify -Prelease -Dmaven.repo.local="$RUNNER_TEMP/m2" -Dgpg.passphrase="$GPG_PASSPHRASE"
 
       - name: Assert built jar manifest matches release tag
         run: |
@@ -250,6 +249,8 @@ jobs:
           done
 
       - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           version="${VERSION#v}"
@@ -261,3 +262,12 @@ jobs:
             "vietnamese-tokenizer-dicts/target/vietnamese-tokenizer-dicts-${version}.jar" \
             "vietnamese-tokenizer-dicts/target/vietnamese-tokenizer-dicts-${version}.jar.sha256" \
             --clobber
+
+      - name: Deploy to Central
+        # The irreversible step, run last: assets are already on the GitHub Release and the
+        # manifest is already asserted, so a failure here doesn't lose anything recoverable.
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: mvn -B deploy -Prelease -Dmaven.repo.local="$RUNNER_TEMP/m2" -Dgpg.passphrase="$GPG_PASSPHRASE"

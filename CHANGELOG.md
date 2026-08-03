@@ -11,9 +11,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `pom.xml`: Central deployments now auto-publish (`autoPublish`) and the build waits for the
   artifact to go live (`waitUntil=published`), so a release no longer stalls in the Portal awaiting
-  a manual click and CI green now means genuinely published.
+  a manual click. Green CI does now imply published — but the converse doesn't hold: a run killed
+  mid-wait (e.g. by the job timeout) leaves the deployment completing server-side, so **red no
+  longer implies not-published**.
 - `pom.xml`: named Central deployments `vietnamese-tokenizer <version>` instead of the default
   `Deployment`, which made concurrent Portal entries indistinguishable.
+- `pom.xml`: pinned `<waitMaxTime>1800</waitMaxTime>` explicitly — the plugin's non-lowerable wait
+  floor — so its coupling with `release.yml`'s `publish` job timeout is visible to whoever next
+  edits either one.
+- `.github/workflows/release.yml`: raised the `publish` job's `timeout-minutes` from 30 to 45. 30
+  exactly equalled the plugin's wait floor, so the runner was guaranteed to be killed before the
+  plugin's own wait could time out — and because `autoPublish=true`, the deployment then kept
+  publishing server-side after the runner died, with CI reporting red for a version that shipped
+  anyway.
+- `.github/workflows/release.yml`: gated the `publish` job behind a new `central` GitHub
+  Environment with a required reviewer, restoring the human checkpoint that `autoPublish=true`
+  removes — a PR touching `release.yml`, `scripts/*`, or `pom.xml` runs with Central/GPG secrets in
+  scope from the PR head, not `main`.
+- `.github/workflows/release.yml`: scoped `CENTRAL_*`, `GPG_PASSPHRASE`, and `GH_TOKEN` to the
+  individual steps that use them instead of job-level `env`, so unrelated steps — including
+  third-party Maven plugin code — can no longer read them.
+- `.github/workflows/release.yml`: dropped `cache: maven` on the `publish` job in favor of an
+  isolated `-Dmaven.repo.local=$RUNNER_TEMP/m2`, so a signing job never restores a `~/.m2` store
+  written by a PR-controlled `ci.yml` run on the same event.
+- `.github/workflows/release.yml`: reordered the `publish` job to verify → assert manifest →
+  package assets → upload assets → deploy, so a deploy failure no longer strands the release
+  assets, and the manifest assertion runs before the irreversible step rather than after it.
+- `.github/workflows/release.yml`: added `queue: max` to the workflow's `concurrency` block — the
+  default `queue: single` silently cancels a third concurrent run instead of queuing it, and
+  `publish` now holds the lock for up to 45 minutes.
 
 ---
 

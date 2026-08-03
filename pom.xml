@@ -194,6 +194,11 @@
                                  to actually go live, so a publish-stage failure fails CI instead of passing
                                  silently the way 0.2.1 did. -->
                             <waitUntil>published</waitUntil>
+                            <!-- 1800s is the plugin's non-lowerable floor (WAIT_MAX_TIME_DEFAULT_VALUE):
+                                 a smaller value is silently clamped back up. release.yml's publish job
+                                 timeout-minutes must exceed this plus build time, or the runner is killed
+                                 before the plugin's own wait can time out, orphaning the deployment. -->
+                            <waitMaxTime>1800</waitMaxTime>
                         </configuration>
                     </plugin>
                 </plugins>
