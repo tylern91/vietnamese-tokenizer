@@ -49,3 +49,40 @@ jobs:
 
       - name: Build and test
         run: mvn -B clean verify
+
+  # Not a required status check yet — see CONTRIBUTING.md's sign-off section. Add it to the
+  # branch ruleset only after it has passed once on a real PR.
+  dco:
+    name: DCO sign-off
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check every commit carries a matching Signed-off-by trailer
+        run: |
+          set -euo pipefail
+          base="${{ github.event.pull_request.base.sha }}"
+          missing=0
+          while IFS= read -r sha; do
+            author_email="$(git log -1 --format='%ae' "$sha")"
+            trailers="$(git log -1 --format='%(trailers:key=Signed-off-by,valueonly)' "$sha")"
+            if [ -z "$trailers" ]; then
+              echo "::error::Commit $sha has no Signed-off-by trailer (git commit -s)"
+              missing=1
+              continue
+            fi
+            if ! printf '%s\n' "$trailers" | grep -qF "$author_email"; then
+              echo "::error::Commit $sha's Signed-off-by trailer doesn't match its author ($author_email)"
+              missing=1
+            fi
+          done < <(git log --format='%H' "${base}..HEAD")
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          echo "All commits carry a matching Signed-off-by trailer"
