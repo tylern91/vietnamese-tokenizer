@@ -84,38 +84,12 @@ jobs:
 
       - name: Idempotency guard
         id: guard
-        # TODO(A3 — this is the design decision reserved for you, not auto-implemented):
-        #
-        # Before this PR, `next` auto-incremented past a failed release on every re-run
-        # (bump(latest_tag, label) with latest now including the half-published tag), so
-        # this `git rev-parse` almost never matched and the guard could never fire — that
-        # was PR #5's deferred P0-2. Now that "Compute next version" derives `next` from
-        # the pom, a re-run recomputes the *same* tag, so this check now correctly
-        # succeeds on a recovery re-run. But `skip=true` still means "skip everything
-        # below, including publish" — so a failed-publish re-run is still a silent no-op,
-        # just one that's reachable now instead of unreachable. That's the bug this step
-        # needs to actually fix. Two real designs, pick one:
-        #
-        #   1. Skip tag creation, still run publish. Makes "re-run all jobs" a working
-        #      recovery path for a publish that failed after the tag/release already
-        #      landed. Risk: attempts to publish coordinates that may already be live —
-        #      Central rejects duplicates, so this fails loudly rather than corrupting
-        #      anything. Requires splitting this step's single `skip` output into two:
-        #      "tag was created" (gates the tag/release/mark steps below, :95-187) vs.
-        #      "publish should run" (feeds the job's `created` output, :29, which the
-        #      publish job's `if:` reads at :195).
-        #
-        #   2. Hard-fail when the tag exists. Unambiguous, forces a human to look before
-        #      anything re-runs. Costs the automatic recovery path — but A5's planned
-        #      `workflow_dispatch` input is a separate, explicit recovery route, so this
-        #      isn't the only way out.
-        #
-        # The genuine-duplicate case (two PRs racing to the same version) no longer needs
-        # defending here either way — A4's version-sync assertion catches that pre-merge
-        # as a red required check.
-        #
-        # Current behavior below is UNCHANGED (still the old "skip everything" no-op) —
-        # replace it with your chosen design.
+        # `skip=true` means "the tag already exists, don't recreate the tag or GitHub
+        # Release" — it does NOT mean "don't publish". Recovery re-runs (A3, chosen
+        # design: skip tag creation, still attempt publish) rely on that distinction;
+        # see the "Mark release created" step below for the other half of it. The
+        # genuine-duplicate case (two PRs racing to the same version) doesn't need
+        # defending here — A4's version-sync assertion catches that pre-merge.
         run: |
           if git rev-parse "${{ steps.ver.outputs.next }}" >/dev/null 2>&1; then
             echo "::notice::Tag ${{ steps.ver.outputs.next }} already exists — skipping release"
@@ -215,10 +189,15 @@ jobs:
 
       - name: Mark release created
         id: mark
+        # Fires whenever a release for `next` exists — either just created (skip=false,
+        # notes non-empty, not a dry run) or already existing from a prior attempt
+        # (skip=true). Either way the publish job should get a chance to run; Central
+        # rejects a genuine duplicate deployment rather than silently double-shipping.
         if: >
-          steps.guard.outputs.skip == 'false' &&
-          steps.notes_guard.outputs.empty == 'false' &&
-          !contains(github.event.pull_request.body, '<!-- release-dry-run -->')
+          steps.guard.outputs.skip == 'true' ||
+          (steps.guard.outputs.skip == 'false' &&
+           steps.notes_guard.outputs.empty == 'false' &&
+           !contains(github.event.pull_request.body, '<!-- release-dry-run -->'))
         run: printf 'created=true\n' >> "$GITHUB_OUTPUT"
 
   publish:
