@@ -63,8 +63,10 @@ for module in vietnamese-tokenizer-core vietnamese-tokenizer-dicts; do
 done
 
 # First "## [X.Y.Z]" heading — skips "## [Unreleased]" since its bracket content
-# isn't numeric.
-changelog_version="$(grep -m1 -E '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' "$changelog" | sed -E 's/^## \[([0-9]+\.[0-9]+\.[0-9]+)\].*/\1/')"
+# isn't numeric. `|| true` matters: under pipefail, grep matching nothing makes the
+# pipeline exit 1 even though sed still succeeds, which would abort the script here
+# instead of reaching the "no released heading found" check below.
+changelog_version="$(grep -m1 -E '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' "$changelog" | sed -E 's/^## \[([0-9]+\.[0-9]+\.[0-9]+)\].*/\1/' || true)"
 
 if [[ -z "$changelog_version" ]]; then
   printf 'check-version-sync: no released "## [X.Y.Z]" heading found in %s\n' "$changelog" >&2
