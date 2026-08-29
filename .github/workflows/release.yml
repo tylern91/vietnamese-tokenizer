@@ -129,6 +129,26 @@ jobs:
             printf 'skip=false\n' >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Assert release preconditions
+        # Hard-fail here, before any tag exists, rather than letting either gap surface
+        # downstream as a silently-green no-op (CENTRAL_PUBLISH_ENABLED=false previously
+        # let `publish` skip after the tag/release were already public) or a degraded
+        # artifact (an unset GPG_PRIVATE_KEY previously only warned and pushed an
+        # unsigned tag).
+        if: steps.guard.outputs.skip == 'false'
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ "${{ vars.CENTRAL_PUBLISH_ENABLED }}" != 'true' ]; then
+            echo "::error::vars.CENTRAL_PUBLISH_ENABLED is not 'true' — refusing to create a tag/release that publish will never pick up"
+            exit 1
+          fi
+          if [ -z "$GPG_PRIVATE_KEY" ]; then
+            echo "::error::GPG_PRIVATE_KEY secret is not set — refusing to push an unsigned release tag"
+            exit 1
+          fi
+
       - name: Build release notes
         if: steps.guard.outputs.skip == 'false'
         env:
@@ -142,20 +162,41 @@ jobs:
             > /tmp/RELEASE_BODY.md
 
       - name: Guard against empty release notes
+        # Collapses the empty-notes check and the dry-run marker into single boolean
+        # outputs (`should_release`, `dry_run`) so the tag/release-creation steps below
+        # reference one condition each instead of repeating the same three clauses.
         id: notes_guard
         if: steps.guard.outputs.skip == 'false'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
+          set -euo pipefail
           size="$(tr -d '[:space:]' < /tmp/RELEASE_BODY.md | wc -c | tr -d ' ')"
+          empty=false
           if [ "$size" -lt 10 ]; then
             echo "::notice::CHANGELOG.md has no ## [${{ steps.ver.outputs.next }}] section — skipping tag + release"
-            printf 'empty=true\n' >> "$GITHUB_OUTPUT"
-          else
-            printf 'empty=false\n' >> "$GITHUB_OUTPUT"
+            empty=true
           fi
+
+          dry_run=false
+          if printf '%s' "${PR_BODY:-}" | grep -qF '<!-- release-dry-run -->'; then
+            dry_run=true
+          fi
+
+          should_release=false
+          if [ "$empty" = "false" ] && [ "$dry_run" = "false" ]; then
+            should_release=true
+          fi
+
+          printf 'empty=%s\n'          "$empty"          >> "$GITHUB_OUTPUT"
+          printf 'dry_run=%s\n'        "$dry_run"        >> "$GITHUB_OUTPUT"
+          printf 'should_release=%s\n' "$should_release" >> "$GITHUB_OUTPUT"
 
       - name: Import GPG key
         id: gpg
-        if: steps.guard.outputs.skip == 'false' && env.GPG_PRIVATE_KEY != ''
+        # "Assert release preconditions" already hard-failed the job if this secret
+        # were unset, so skip=='false' is sufficient here.
+        if: steps.guard.outputs.skip == 'false'
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
@@ -182,26 +223,18 @@ jobs:
           git config commit.gpgsign "${GPG_SIGNED:-false}"
 
       - name: Create and push tag
-        if: >
-          steps.guard.outputs.skip == 'false' &&
-          steps.notes_guard.outputs.empty == 'false' &&
-          !contains(github.event.pull_request.body, '<!-- release-dry-run -->')
+        # Always signed: "Assert release preconditions" already hard-failed the job if
+        # GPG_PRIVATE_KEY were unset, and "Import GPG key" would have failed the job
+        # (rather than reaching here) had the import itself not succeeded.
+        if: steps.notes_guard.outputs.should_release == 'true'
         run: |
           set -euo pipefail
           tag="${{ steps.ver.outputs.next }}"
-          if [ "${{ steps.gpg.outputs.signed }}" = "true" ]; then
-            git tag -s "$tag" -F /tmp/RELEASE_BODY.md
-          else
-            echo "::warning::GPG_PRIVATE_KEY secret not set — creating unsigned annotated tag"
-            git tag -a "$tag" -F /tmp/RELEASE_BODY.md
-          fi
+          git tag -s "$tag" -F /tmp/RELEASE_BODY.md
           git push origin "$tag"
 
       - name: Create GitHub Release
-        if: >
-          steps.guard.outputs.skip == 'false' &&
-          steps.notes_guard.outputs.empty == 'false' &&
-          !contains(github.event.pull_request.body, '<!-- release-dry-run -->')
+        if: steps.notes_guard.outputs.should_release == 'true'
         run: |
           gh release create "${{ steps.ver.outputs.next }}" \
             --title "${{ steps.ver.outputs.next }}" \
@@ -213,7 +246,7 @@ jobs:
         if: >
           steps.guard.outputs.skip == 'false' &&
           steps.notes_guard.outputs.empty == 'false' &&
-          contains(github.event.pull_request.body, '<!-- release-dry-run -->')
+          steps.notes_guard.outputs.dry_run == 'true'
         run: |
           echo "::notice::<!-- release-dry-run --> — would create tag ${{ steps.ver.outputs.next }} with the following notes:"
           cat /tmp/RELEASE_BODY.md
@@ -226,9 +259,7 @@ jobs:
         # rejects a genuine duplicate deployment rather than silently double-shipping.
         if: >
           steps.guard.outputs.skip == 'true' ||
-          (steps.guard.outputs.skip == 'false' &&
-           steps.notes_guard.outputs.empty == 'false' &&
-           !contains(github.event.pull_request.body, '<!-- release-dry-run -->'))
+          steps.notes_guard.outputs.should_release == 'true'
         run: printf 'created=true\n' >> "$GITHUB_OUTPUT"
 
   publish:
