@@ -8,7 +8,18 @@
 # release heading (`## [Unreleased]` -> `## [X.Y.Z] - DATE`) moves in lockstep, or
 # that a partial/hand-edited bump didn't leave one module's <parent><version> behind.
 #
-# Usage: check-version-sync.sh [path-to-repo-root]
+# A 4th, optional assertion validates the pom bump against a PR's semver label -
+# omit <bump-label> entirely to skip it (there is a real difference between "no
+# argument" and "" — see below):
+#
+#   <bump-label> is major/minor/patch  -> pom_version must equal bump(latest_tag, label)
+#   <bump-label> is "" (skip-release/no label) -> pom_version must equal latest_tag —
+#     a non-releasing PR must not move the version and silently arm the next release
+#   no tags exist in the repo at all   -> skipped regardless of <bump-label> — any
+#     version is valid for a first release, and bump-version.sh hard-fails on an
+#     empty <latest_tag> anyway
+#
+# Usage: check-version-sync.sh [path-to-repo-root] [bump-label]
 set -Eeuo pipefail
 
 root="${1:-.}"
@@ -78,6 +89,30 @@ if [[ "$pom_version" != "$changelog_version" ]]; then
     "$root_pom" "$pom_version" "$changelog_version" >&2
   printf 'Bump the pom.xml version to match, or finalize CHANGELOG.md if it is stale.\n' >&2
   exit 1
+fi
+
+# Bump-label assertion — see the usage comment at the top of this file for the
+# three-row matrix. `${2+is_set}` (not `${2:-}`) is deliberate: it distinguishes
+# "no 2nd argument at all" (skip this check) from "2nd argument passed as an empty
+# string" (row 2 — validate that a non-releasing PR left the version alone).
+if [[ "${2+is_set}" == "is_set" ]]; then
+  label="$2"
+  latest_tag="$(git -C "$root" tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)"
+
+  if [[ -n "$latest_tag" ]]; then
+    if [[ -n "$label" ]]; then
+      expected="$(bash "$(dirname "${BASH_SOURCE[0]}")/bump-version.sh" "$latest_tag" "$label")"
+      if [[ "v${pom_version}" != "$expected" ]]; then
+        printf 'check-version-sync: MISMATCH — pom.xml is v%s but label "%s" off %s implies %s\n' \
+          "$pom_version" "$label" "$latest_tag" "$expected" >&2
+        exit 1
+      fi
+    elif [[ "v${pom_version}" != "$latest_tag" ]]; then
+      printf 'check-version-sync: MISMATCH — pom.xml is v%s but this PR has no release label; a non-releasing PR must not move the version past %s\n' \
+        "$pom_version" "$latest_tag" >&2
+      exit 1
+    fi
+  fi
 fi
 
 printf 'check-version-sync: OK — %s == %s, both modules in sync\n' "$pom_version" "$changelog_version"
