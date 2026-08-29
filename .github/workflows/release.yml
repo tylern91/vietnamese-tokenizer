@@ -3,6 +3,14 @@ on:
   pull_request:
     types: [closed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: >-
+          Existing release tag to retry publish for (e.g. v0.2.2). Recovery path only —
+          the tag must already exist; this trigger never creates a new release.
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -16,12 +24,14 @@ concurrency:
 jobs:
   release:
     if: >
-      github.event.pull_request.merged == true &&
-      vars.RELEASE_ENABLED == 'true' &&
-      (contains(github.event.pull_request.labels.*.name, 'major') ||
-       contains(github.event.pull_request.labels.*.name, 'minor') ||
-       contains(github.event.pull_request.labels.*.name, 'patch')) &&
-      !contains(github.event.pull_request.labels.*.name, 'skip-release')
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.merged == true &&
+       vars.RELEASE_ENABLED == 'true' &&
+       (contains(github.event.pull_request.labels.*.name, 'major') ||
+        contains(github.event.pull_request.labels.*.name, 'minor') ||
+        contains(github.event.pull_request.labels.*.name, 'patch')) &&
+       !contains(github.event.pull_request.labels.*.name, 'skip-release')) ||
+      (github.event_name == 'workflow_dispatch' && vars.RELEASE_ENABLED == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -41,6 +51,7 @@ jobs:
 
       - name: Resolve bump label with breaking-change escalation
         id: bump
+        if: github.event_name == 'pull_request'
         run: |
           set -euo pipefail
           label="$(jq -nr --argjson l "$PR_LABELS" 'first(["major","minor","patch"][] | select(IN($l[]))) // empty')"
@@ -62,23 +73,40 @@ jobs:
         # already says, except on a re-run, where the tag from a prior attempt
         # already exists and the label is meaningless (the idempotency guard
         # below owns that branch).
+        #
+        # workflow_dispatch is a distinct, narrower path: it never derives or
+        # creates a version, it only retries publish for a tag an operator
+        # names explicitly — so it hard-fails if that tag doesn't already
+        # exist, rather than silently falling through to the pull_request
+        # derivation logic.
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          next="v$(bash scripts/pom-version.sh .)"
-          # `|| true` is load-bearing: under pipefail, grep finding zero tags makes the
-          # pipeline's exit status 1 even though head still succeeds, which would abort
-          # this step before the "first-ever release" branch below ever runs.
-          latest="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)"
-
-          if git rev-parse -q --verify "refs/tags/$next" >/dev/null; then
-            : # tag already exists -> recovery path, label validation doesn't apply
-          elif [ -z "$latest" ]; then
-            : # first-ever release -> nothing to validate the label against
-          else
-            expected="$(bash scripts/bump-version.sh "$latest" "${{ steps.bump.outputs.label }}")"
-            if [ "$next" != "$expected" ]; then
-              echo "::error::pom.xml is $next but label '${{ steps.bump.outputs.label }}' off $latest implies $expected"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            next="$DISPATCH_TAG"
+            if ! git rev-parse -q --verify "refs/tags/$next" >/dev/null; then
+              echo "::error::workflow_dispatch tag '$next' does not exist — this trigger only retries publish for an existing release, it never creates one"
               exit 1
+            fi
+            latest="$next"
+          else
+            next="v$(bash scripts/pom-version.sh .)"
+            # `|| true` is load-bearing: under pipefail, grep finding zero tags makes the
+            # pipeline's exit status 1 even though head still succeeds, which would abort
+            # this step before the "first-ever release" branch below ever runs.
+            latest="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)"
+
+            if git rev-parse -q --verify "refs/tags/$next" >/dev/null; then
+              : # tag already exists -> recovery path, label validation doesn't apply
+            elif [ -z "$latest" ]; then
+              : # first-ever release -> nothing to validate the label against
+            else
+              expected="$(bash scripts/bump-version.sh "$latest" "${{ steps.bump.outputs.label }}")"
+              if [ "$next" != "$expected" ]; then
+                echo "::error::pom.xml is $next but label '${{ steps.bump.outputs.label }}' off $latest implies $expected"
+                exit 1
+              fi
             fi
           fi
 
