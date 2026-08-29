@@ -214,7 +214,7 @@ jobs:
         run: |
           set -euo pipefail
           want="${VERSION#v}"
-          got="$(mvn -B -q -f pom.xml -Dmaven.repo.local="$RUNNER_TEMP/m2" help:evaluate -Dexpression=project.version -DforceStdout)"
+          got="$(bash scripts/pom-version.sh .)"
           if [ "$got" != "$want" ]; then
             echo "::error::pom.xml reports version '$got' but release tag is '$want'"
             exit 1
