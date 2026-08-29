@@ -22,7 +22,7 @@ for f in "$root_pom" "$changelog"; do
   fi
 done
 
-pom_version="$(mvn -q -f "$root_pom" help:evaluate -Dexpression=project.version -DforceStdout)"
+pom_version="$(bash "$(dirname "${BASH_SOURCE[0]}")/pom-version.sh" "$root")"
 
 if [[ -z "$pom_version" ]]; then
   printf 'check-version-sync: could not resolve project.version from %s\n' "$root_pom" >&2
