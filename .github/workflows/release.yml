@@ -56,10 +56,29 @@ jobs:
 
       - name: Compute next version
         id: ver
+        # The pom is the source of truth for what gets released — it's in the
+        # reviewed diff, unlike the tag list or the PR label. The label is
+        # demoted to a pre-tag validation: it must agree with what the pom
+        # already says, except on a re-run, where the tag from a prior attempt
+        # already exists and the label is meaningless (the idempotency guard
+        # below owns that branch).
         run: |
           set -euo pipefail
+          next="v$(bash scripts/pom-version.sh .)"
           latest="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)"
-          next="$(bash scripts/bump-version.sh "$latest" "${{ steps.bump.outputs.label }}")"
+
+          if git rev-parse -q --verify "refs/tags/$next" >/dev/null; then
+            : # tag already exists -> recovery path, label validation doesn't apply
+          elif [ -z "$latest" ]; then
+            : # first-ever release -> nothing to validate the label against
+          else
+            expected="$(bash scripts/bump-version.sh "$latest" "${{ steps.bump.outputs.label }}")"
+            if [ "$next" != "$expected" ]; then
+              echo "::error::pom.xml is $next but label '${{ steps.bump.outputs.label }}' off $latest implies $expected"
+              exit 1
+            fi
+          fi
+
           printf 'latest=%s\n' "$latest" >> "$GITHUB_OUTPUT"
           printf 'next=%s\n'   "$next"   >> "$GITHUB_OUTPUT"
 
