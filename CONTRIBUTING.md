@@ -122,6 +122,24 @@ This repo has no `develop` branch.
   `check-pr.sh` enforces this and it is not advisory. Only include a checkbox for something
   verifiable before merge; forward-looking notes belong outside that section.
 
+## Release recovery
+
+The release pipeline (`.github/workflows/release.yml`) normally runs once, on a PR merging to
+`main`. If `publish` fails or is left stuck after the tag and GitHub Release already exist (e.g.
+Central rejected the deploy, or the run was cancelled before `publish` finished), re-running the
+same workflow via GitHub's "Re-run all jobs" works — the idempotency guard recognizes the existing
+tag and lets `publish` retry without recreating the tag or release.
+
+If that isn't available (the run was deleted, or you need to retry from a different commit),
+dispatch the workflow manually instead:
+
+```bash
+gh workflow run release.yml -f tag=v0.2.2
+```
+
+This only retries `publish` for a tag that **already exists** — it never derives a version or
+creates a new tag/release, and it hard-fails if the given tag isn't found.
+
 ## Dictionary data
 
 Changes to `vietnamese-tokenizer-dicts` must preserve the CC BY-SA 4.0 attribution in that
