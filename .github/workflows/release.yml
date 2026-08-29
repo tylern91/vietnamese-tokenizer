@@ -65,7 +65,10 @@ jobs:
         run: |
           set -euo pipefail
           next="v$(bash scripts/pom-version.sh .)"
-          latest="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)"
+          # `|| true` is load-bearing: under pipefail, grep finding zero tags makes the
+          # pipeline's exit status 1 even though head still succeeds, which would abort
+          # this step before the "first-ever release" branch below ever runs.
+          latest="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)"
 
           if git rev-parse -q --verify "refs/tags/$next" >/dev/null; then
             : # tag already exists -> recovery path, label validation doesn't apply
