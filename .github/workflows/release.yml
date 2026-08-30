@@ -3,6 +3,14 @@ on:
   pull_request:
     types: [closed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: >-
+          Existing release tag to retry publish for (e.g. v0.2.2). Recovery path only —
+          the tag must already exist; this trigger never creates a new release.
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -16,12 +24,14 @@ concurrency:
 jobs:
   release:
     if: >
-      github.event.pull_request.merged == true &&
-      vars.RELEASE_ENABLED == 'true' &&
-      (contains(github.event.pull_request.labels.*.name, 'major') ||
-       contains(github.event.pull_request.labels.*.name, 'minor') ||
-       contains(github.event.pull_request.labels.*.name, 'patch')) &&
-      !contains(github.event.pull_request.labels.*.name, 'skip-release')
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.merged == true &&
+       vars.RELEASE_ENABLED == 'true' &&
+       (contains(github.event.pull_request.labels.*.name, 'major') ||
+        contains(github.event.pull_request.labels.*.name, 'minor') ||
+        contains(github.event.pull_request.labels.*.name, 'patch')) &&
+       !contains(github.event.pull_request.labels.*.name, 'skip-release')) ||
+      (github.event_name == 'workflow_dispatch' && vars.RELEASE_ENABLED == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -41,6 +51,7 @@ jobs:
 
       - name: Resolve bump label with breaking-change escalation
         id: bump
+        if: github.event_name == 'pull_request'
         run: |
           set -euo pipefail
           label="$(jq -nr --argjson l "$PR_LABELS" 'first(["major","minor","patch"][] | select(IN($l[]))) // empty')"
@@ -56,50 +67,156 @@ jobs:
 
       - name: Compute next version
         id: ver
+        # The pom is the source of truth for what gets released — it's in the
+        # reviewed diff, unlike the tag list or the PR label. The label is
+        # demoted to a pre-tag validation: it must agree with what the pom
+        # already says, except on a re-run, where the tag from a prior attempt
+        # already exists and the label is meaningless (the idempotency guard
+        # below owns that branch).
+        #
+        # workflow_dispatch is a distinct, narrower path: it never derives or
+        # creates a version, it only retries publish for a tag an operator
+        # names explicitly — so it hard-fails if that tag doesn't already
+        # exist, rather than silently falling through to the pull_request
+        # derivation logic.
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+          BUMP_LABEL: ${{ steps.bump.outputs.label }}
         run: |
           set -euo pipefail
-          latest="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)"
-          next="$(bash scripts/bump-version.sh "$latest" "${{ steps.bump.outputs.label }}")"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            next="$DISPATCH_TAG"
+            if ! git rev-parse -q --verify "refs/tags/$next" >/dev/null; then
+              echo "::error::workflow_dispatch tag '$next' does not exist — this trigger only retries publish for an existing release, it never creates one"
+              exit 1
+            fi
+            latest="$next"
+          else
+            next="v$(bash scripts/pom-version.sh .)"
+            # `|| true` is load-bearing: under pipefail, grep finding zero tags makes the
+            # pipeline's exit status 1 even though head still succeeds, which would abort
+            # this step before the "first-ever release" branch below ever runs.
+            latest="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)"
+
+            if git rev-parse -q --verify "refs/tags/$next" >/dev/null; then
+              : # tag already exists -> recovery path, label validation doesn't apply
+            elif [ -z "$latest" ]; then
+              : # first-ever release -> nothing to validate the label against
+            else
+              expected="$(bash scripts/bump-version.sh "$latest" "$BUMP_LABEL")"
+              if [ "$next" != "$expected" ]; then
+                echo "::error::pom.xml is $next but label '$BUMP_LABEL' off $latest implies $expected"
+                exit 1
+              fi
+            fi
+          fi
+
+          # Format-validate before anything downstream ever splices `next` into a git
+          # ref name or a `gh release create` argument. Git tag names may legally
+          # contain shell metacharacters ($, `, ;, &, |, (, )); on the workflow_dispatch
+          # path `next` is operator-supplied, so this is the one check standing between
+          # an attacker-named tag and script injection in every step that consumes it.
+          if ! [[ "$next" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::computed release tag '$next' is not a valid vMAJOR.MINOR.PATCH tag"
+            exit 1
+          fi
+
           printf 'latest=%s\n' "$latest" >> "$GITHUB_OUTPUT"
           printf 'next=%s\n'   "$next"   >> "$GITHUB_OUTPUT"
 
       - name: Idempotency guard
         id: guard
+        # `skip=true` means "the tag already exists, don't recreate the tag or GitHub
+        # Release" — it does NOT mean "don't publish". Recovery re-runs (A3, chosen
+        # design: skip tag creation, still attempt publish) rely on that distinction;
+        # see the "Mark release created" step below for the other half of it. The
+        # genuine-duplicate case (two PRs racing to the same version) doesn't need
+        # defending here — A4's version-sync assertion catches that pre-merge.
+        env:
+          NEXT_TAG: ${{ steps.ver.outputs.next }}
         run: |
-          if git rev-parse "${{ steps.ver.outputs.next }}" >/dev/null 2>&1; then
-            echo "::notice::Tag ${{ steps.ver.outputs.next }} already exists — skipping release"
+          if git rev-parse "$NEXT_TAG" >/dev/null 2>&1; then
+            echo "::notice::Tag $NEXT_TAG already exists — skipping release"
             printf 'skip=true\n' >> "$GITHUB_OUTPUT"
           else
             printf 'skip=false\n' >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Assert release preconditions
+        # Runs on every event — including workflow_dispatch and recovery re-runs where
+        # `steps.guard.outputs.skip` is 'true' — because CENTRAL_PUBLISH_ENABLED=false
+        # would otherwise let those paths reach a silently-skipped `publish` job (the
+        # exact "green run, nothing published" bug this workflow exists to prevent, just
+        # relocated onto the recovery path). Dry-run previews are exempted: nothing gets
+        # tagged, signed, or published, so there's nothing to hard-fail. GPG_PRIVATE_KEY
+        # only matters when a tag is about to be freshly created (skip=='false'); a
+        # recovery run never signs anything new.
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if printf '%s' "${PR_BODY:-}" | grep -qF '<!-- release-dry-run -->'; then
+            exit 0
+          fi
+          if [ "${{ vars.CENTRAL_PUBLISH_ENABLED }}" != 'true' ]; then
+            echo "::error::vars.CENTRAL_PUBLISH_ENABLED is not 'true' — refusing to proceed toward a publish that will never happen"
+            exit 1
+          fi
+          if [ "${{ steps.guard.outputs.skip }}" = 'false' ] && [ -z "$GPG_PRIVATE_KEY" ]; then
+            echo "::error::GPG_PRIVATE_KEY secret is not set — refusing to push an unsigned release tag"
+            exit 1
+          fi
+
       - name: Build release notes
         if: steps.guard.outputs.skip == 'false'
         env:
-          PR_BODY: ${{ github.event.pull_request.body }}
+          NEXT_TAG: ${{ steps.ver.outputs.next }}
+          BUMP_LABEL: ${{ steps.bump.outputs.label }}
+          BUMP_BREAKING: ${{ steps.bump.outputs.breaking }}
         run: |
           bash scripts/build-release-notes.sh \
-            "${{ steps.ver.outputs.next }}" \
-            "${{ steps.bump.outputs.label }}" \
-            "${{ steps.bump.outputs.breaking }}" \
+            "$NEXT_TAG" \
+            "$BUMP_LABEL" \
+            "$BUMP_BREAKING" \
             --from-existing \
             > /tmp/RELEASE_BODY.md
 
       - name: Guard against empty release notes
+        # Collapses the empty-notes check and the dry-run marker into single boolean
+        # outputs (`should_release`, `dry_run`) so the tag/release-creation steps below
+        # reference one condition each instead of repeating the same three clauses.
         id: notes_guard
         if: steps.guard.outputs.skip == 'false'
+        env:
+          NEXT_TAG: ${{ steps.ver.outputs.next }}
         run: |
+          set -euo pipefail
           size="$(tr -d '[:space:]' < /tmp/RELEASE_BODY.md | wc -c | tr -d ' ')"
+          empty=false
           if [ "$size" -lt 10 ]; then
-            echo "::notice::CHANGELOG.md has no ## [${{ steps.ver.outputs.next }}] section — skipping tag + release"
-            printf 'empty=true\n' >> "$GITHUB_OUTPUT"
-          else
-            printf 'empty=false\n' >> "$GITHUB_OUTPUT"
+            echo "::notice::CHANGELOG.md has no ## [$NEXT_TAG] section — skipping tag + release"
+            empty=true
           fi
+
+          dry_run=false
+          if printf '%s' "${PR_BODY:-}" | grep -qF '<!-- release-dry-run -->'; then
+            dry_run=true
+          fi
+
+          should_release=false
+          if [ "$empty" = "false" ] && [ "$dry_run" = "false" ]; then
+            should_release=true
+          fi
+
+          printf 'empty=%s\n'          "$empty"          >> "$GITHUB_OUTPUT"
+          printf 'dry_run=%s\n'        "$dry_run"        >> "$GITHUB_OUTPUT"
+          printf 'should_release=%s\n' "$should_release" >> "$GITHUB_OUTPUT"
 
       - name: Import GPG key
         id: gpg
-        if: steps.guard.outputs.skip == 'false' && env.GPG_PRIVATE_KEY != ''
+        # "Assert release preconditions" already hard-failed the job if this secret
+        # were unset, so skip=='false' is sufficient here.
+        if: steps.guard.outputs.skip == 'false'
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
@@ -126,29 +243,24 @@ jobs:
           git config commit.gpgsign "${GPG_SIGNED:-false}"
 
       - name: Create and push tag
-        if: >
-          steps.guard.outputs.skip == 'false' &&
-          steps.notes_guard.outputs.empty == 'false' &&
-          !contains(github.event.pull_request.body, '<!-- release-dry-run -->')
+        # Always signed: "Assert release preconditions" already hard-failed the job if
+        # GPG_PRIVATE_KEY were unset, and "Import GPG key" would have failed the job
+        # (rather than reaching here) had the import itself not succeeded.
+        if: steps.notes_guard.outputs.should_release == 'true'
+        env:
+          NEXT_TAG: ${{ steps.ver.outputs.next }}
         run: |
           set -euo pipefail
-          tag="${{ steps.ver.outputs.next }}"
-          if [ "${{ steps.gpg.outputs.signed }}" = "true" ]; then
-            git tag -s "$tag" -F /tmp/RELEASE_BODY.md
-          else
-            echo "::warning::GPG_PRIVATE_KEY secret not set — creating unsigned annotated tag"
-            git tag -a "$tag" -F /tmp/RELEASE_BODY.md
-          fi
-          git push origin "$tag"
+          git tag -s "$NEXT_TAG" -F /tmp/RELEASE_BODY.md
+          git push origin "$NEXT_TAG"
 
       - name: Create GitHub Release
-        if: >
-          steps.guard.outputs.skip == 'false' &&
-          steps.notes_guard.outputs.empty == 'false' &&
-          !contains(github.event.pull_request.body, '<!-- release-dry-run -->')
+        if: steps.notes_guard.outputs.should_release == 'true'
+        env:
+          NEXT_TAG: ${{ steps.ver.outputs.next }}
         run: |
-          gh release create "${{ steps.ver.outputs.next }}" \
-            --title "${{ steps.ver.outputs.next }}" \
+          gh release create "$NEXT_TAG" \
+            --title "$NEXT_TAG" \
             --notes-file /tmp/RELEASE_BODY.md \
             --latest \
             --verify-tag
@@ -157,17 +269,22 @@ jobs:
         if: >
           steps.guard.outputs.skip == 'false' &&
           steps.notes_guard.outputs.empty == 'false' &&
-          contains(github.event.pull_request.body, '<!-- release-dry-run -->')
+          steps.notes_guard.outputs.dry_run == 'true'
+        env:
+          NEXT_TAG: ${{ steps.ver.outputs.next }}
         run: |
-          echo "::notice::<!-- release-dry-run --> — would create tag ${{ steps.ver.outputs.next }} with the following notes:"
+          echo "::notice::<!-- release-dry-run --> — would create tag $NEXT_TAG with the following notes:"
           cat /tmp/RELEASE_BODY.md
 
       - name: Mark release created
         id: mark
+        # Fires whenever a release for `next` exists — either just created (skip=false,
+        # notes non-empty, not a dry run) or already existing from a prior attempt
+        # (skip=true). Either way the publish job should get a chance to run; Central
+        # rejects a genuine duplicate deployment rather than silently double-shipping.
         if: >
-          steps.guard.outputs.skip == 'false' &&
-          steps.notes_guard.outputs.empty == 'false' &&
-          !contains(github.event.pull_request.body, '<!-- release-dry-run -->')
+          steps.guard.outputs.skip == 'true' ||
+          steps.notes_guard.outputs.should_release == 'true'
         run: printf 'created=true\n' >> "$GITHUB_OUTPUT"
 
   publish:
@@ -214,7 +331,7 @@ jobs:
         run: |
           set -euo pipefail
           want="${VERSION#v}"
-          got="$(mvn -B -q -f pom.xml -Dmaven.repo.local="$RUNNER_TEMP/m2" help:evaluate -Dexpression=project.version -DforceStdout)"
+          got="$(bash scripts/pom-version.sh .)"
           if [ "$got" != "$want" ]; then
             echo "::error::pom.xml reports version '$got' but release tag is '$want'"
             exit 1

@@ -40,6 +40,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.github/workflows/release.yml`: added `queue: max` to the workflow's `concurrency` block — the
   default `queue: single` silently cancels a third concurrent run instead of queuing it, and
   `publish` now holds the lock for up to 45 minutes.
+- `.github/workflows/release.yml`: the release version is now read from `pom.xml` (via the new
+  `scripts/pom-version.sh`) instead of derived by bumping the latest git tag — the PR's semver
+  label now only *validates* that the pom diff matches the bump it claims, rather than deciding
+  the version itself. Closes the deferred PR #5 finding that a failed publish followed by a re-run
+  silently did nothing: `pom.xml` no longer moves between the failed attempt and the retry, so the
+  idempotency guard now recognizes the existing tag and lets `publish` retry instead of computing a
+  new, unreachable version.
+- `.github/workflows/release.yml`: added a `workflow_dispatch` trigger (`tag` input) as a documented
+  recovery path for a stuck or failed `publish` — it only retries an **existing** tag and hard-fails
+  if the tag isn't found; it never derives or creates a version.
+- `.github/workflows/release.yml`: `CENTRAL_PUBLISH_ENABLED != 'true'` and a missing
+  `GPG_PRIVATE_KEY` now hard-fail the `release` job before the tag is created, instead of silently
+  producing a green run with nothing published, or an unsigned tag. The check now runs on every
+  attempt, including `workflow_dispatch` recovery re-runs — it was previously gated behind the
+  idempotency guard's "tag doesn't exist yet" condition, which meant it never ran on exactly the
+  paths where a mid-flight config change would otherwise reproduce the original silent-skip bug.
+  Dry-run previews (`<!-- release-dry-run -->`) are exempted, since nothing gets tagged, signed, or
+  published either way.
+- `.github/workflows/release.yml`: `steps.ver.outputs.next` and `steps.bump.outputs.label` are now
+  passed to every `run:` step via `env:` instead of interpolated directly into the script text, and
+  the computed release tag is format-validated against `^v[0-9]+\.[0-9]+\.[0-9]+$` immediately after
+  it's derived. Git tag names may legally contain shell metacharacters, and on the
+  `workflow_dispatch` path the tag is operator-supplied — so an unvalidated, directly-interpolated
+  tag was a script-injection vector into a job with `contents: write` and access to the GPG signing
+  key.
+- `scripts/check-version-sync.sh`: now also asserts the PR's semver label agrees with the pom
+  version bump (or, for a `skip-release` PR, that the pom didn't move at all) — surfacing what used
+  to be a silent post-merge no-op as a red required check on the PR itself.
+
+### Added
+
+- `scripts/pom-version.sh`: extracts the root `pom.xml`'s `<version>` without shelling out to
+  Maven; fails closed if a `<parent>` element ever precedes `<version>`.
+- `tests/*.bats`: bats coverage for `bump-version.sh`, `pom-version.sh`, and
+  `check-version-sync.sh`'s bump-label assertion matrix, wired into CI as a new `shell-tests` job.
+
+### Known limitations (tracked, not fixed in this PR)
+
+- `GPG_PRIVATE_KEY`/`GPG_PASSPHRASE`/`GPG_KEY_ID` are repository-level secrets, not scoped to the
+  `central` GitHub Environment. The `central` environment's required-reviewer gate is declared only
+  on the `publish` job (Central upload) — the `release` job, which imports and uses the GPG key to
+  sign tags, never declares `environment: central` and can read these secrets from any trigger,
+  including `workflow_dispatch`. Any collaborator with repo write access can push a branch with a
+  modified `release.yml` and dispatch it, reaching GPG import without the human review that gate is
+  meant to enforce. Pre-existing since PR #5's secret architecture; this PR's addition of
+  `workflow_dispatch` makes it reachable via a single `gh workflow run` rather than only in theory.
+  Proper remediation (re-registering the GPG secrets at the `central` environment scope) needs the
+  actual secret material and is a repo-settings change outside this PR's scope — tracked for a
+  dedicated follow-up rather than bundled here.
 
 ---
 
