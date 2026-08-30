@@ -34,6 +34,14 @@ jobs:
       (github.event_name == 'workflow_dispatch' && vars.RELEASE_ENABLED == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Gates the whole job — not just the GPG-touching steps — behind the same reviewer
+    # required for Central publish (#8). Without this, workflow_dispatch on any branch
+    # reaches "Import GPG key" with zero human review; environment secrets set here also
+    # take precedence over repo-level secrets of the same name for jobs that reference
+    # this environment, once those are migrated (tracked separately in #8, requires the
+    # actual key material to re-upload — GitHub's secrets API can't read an existing
+    # value back out to script the move).
+    environment: central
     outputs:
       version: ${{ steps.ver.outputs.next }}
       created: ${{ steps.mark.outputs.created }}
