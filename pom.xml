@@ -7,7 +7,7 @@
 
     <groupId>io.github.tylern91</groupId>
     <artifactId>vietnamese-tokenizer-parent</artifactId>
-    <version>0.2.1</version>
+    <version>0.2.2</version>
     <packaging>pom</packaging>
 
     <name>Vietnamese Tokenizer Parent</name>
