@@ -149,3 +149,27 @@ jobs:
             exit 1
           fi
           echo "All commits carry a matching Signed-off-by trailer"
+
+  # No-regression gate on word-segmentation quality: scores the bundled tokenizer on the pinned
+  # UD_Vietnamese-VTB dev split against the floor in eval-baseline.json. eval.required=true makes
+  # missing data fail the run instead of skipping it.
+  segmentation-eval:
+    name: Segmentation eval
+    runs-on: ubuntu-26.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Fetch UD_Vietnamese-VTB (pinned commit, sha256-verified)
+        run: bash scripts/fetch-eval-data.sh
+
+      - name: Score dev split against the recorded floor
+        run: mvn -B -Peval -Deval.required=true -Dtest=SegmentationEvalAcceptanceTest -Dsurefire.failIfNoSpecifiedTests=false test

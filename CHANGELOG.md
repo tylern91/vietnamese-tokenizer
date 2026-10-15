@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   minor/patch and labelled `skip-release` so they never move the pom version.
 - `tests/acceptance/ci_hardening.bats`: `[AC-1]`..`[AC-5]` acceptance tests pinning the workflow
   hardening below, with revert evidence in `tests/acceptance/revert-ledger.tsv`.
+- Segmentation eval harness (test scope only; nothing in the published artifacts changes):
+  `SegmentationEval` scores exact word-span precision, recall and F1 plus multi-syllable recall
+  against the UD_Vietnamese-VTB treebank, and `scripts/fetch-eval-data.sh` downloads the data at a
+  pinned commit with per-file sha256 verification into the gitignored `eval-data/` (attribution in
+  `docs/eval-data-NOTICE.md`, CC BY-SA 4.0). The `eval` Maven profile plus a new `segmentation-eval`
+  CI job gate dev F1 against the floor recorded in `eval-baseline.json`.
 
 ### Changed
 
