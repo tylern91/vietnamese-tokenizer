@@ -7,3 +7,6 @@ ci_hardening.bats	AC-2	9b86fe63fb0bd685962359270bdf35cbb8b6fc3e	2026-10-15
 ci_hardening.bats	AC-3	9b86fe63fb0bd685962359270bdf35cbb8b6fc3e	2026-10-15
 ci_hardening.bats	AC-4	9b86fe63fb0bd685962359270bdf35cbb8b6fc3e	2026-10-15
 ci_hardening.bats	AC-5	9b86fe63fb0bd685962359270bdf35cbb8b6fc3e	2026-10-15
+SegmentationEvalAcceptanceTest.java	AC-1	5955255dbf5c24373d0467aa3ab0160c680361bf	2026-10-15
+SegmentationEvalAcceptanceTest.java	AC-2	5955255dbf5c24373d0467aa3ab0160c680361bf	2026-10-15
+SegmentationEvalAcceptanceTest.java	AC-3	5955255dbf5c24373d0467aa3ab0160c680361bf	2026-10-15
