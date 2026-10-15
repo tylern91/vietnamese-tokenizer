@@ -49,65 +49,87 @@ public final class ViterbiSegmenter {
         double[] bestScore = new double[n + 1];
         int[] backStart = new int[n + 1];
         int[] backWordId = new int[n + 1];
+        // Word that supplies the bigram context for the edge leaving each position: the word
+        // that ended there, carried across whitespace, or OOV_WORD_ID after any other OOV edge.
+        int[] contextWordId = new int[n + 1];
         Arrays.fill(bestScore, Double.NEGATIVE_INFINITY);
         bestScore[0] = 0.0;
         backWordId[0] = OOV_WORD_ID; // beginning-of-sequence sentinel; never collides with a real
-                                     // bigram key since BigramScores.key(prevId, nextId) packs
-                                     // prevId into the upper 32 bits and only non-negative prevIds
-                                     // occur in the real corpus.
+        contextWordId[0] = OOV_WORD_ID; // bigram key since BigramScores.key(prevId, nextId) packs
+                                        // prevId into the upper 32 bits and only non-negative
+                                        // prevIds occur in the real corpus.
 
-        int[] nextWhitespace = computeNextWhitespace(codepoints);
+        int[] nextNonLetter = computeNextNonLetter(codepoints);
 
         WordTrie wordTrie = dictionaries.wordTrie();
         for (int i = 0; i < n; i++) {
             int pos = i;
-            int prevWordId = backWordId[pos];
+            int prevWordId = contextWordId[pos];
             double base = bestScore[pos];
 
             wordTrie.matchesFrom(codepoints, pos, (end, wordId) -> {
+                if (!isLetterBoundary(codepoints, pos) || !isLetterBoundary(codepoints, end)) {
+                    return;
+                }
                 double score = base + dictionaries.unigramLogProb(wordId)
                         + dictionaries.bigramScores().score(prevWordId, wordId);
-                relax(bestScore, backStart, backWordId, pos, end, wordId, score);
+                relax(bestScore, backStart, backWordId, contextWordId, pos, end, wordId, wordId, score);
             });
 
-            relaxFallback(codepoints, pos, base, bestScore, backStart, backWordId, nextWhitespace);
+            relaxFallback(codepoints, pos, base, prevWordId, bestScore, backStart, backWordId, contextWordId,
+                    nextNonLetter);
         }
 
         return backtrace(n, backStart, backWordId);
     }
 
     /**
-     * {@code nextWhitespace[k]} is the first index {@code >= k} holding whitespace, or
-     * {@code codepoints.length} if none remains — precomputed once so {@link #relaxFallback}
-     * can look up a whitespace-free run's end in O(1) instead of re-scanning it from every
-     * position within the run (which degrades to O(n^2) on a single long whitespace-free run).
+     * True unless {@code index} falls between two letters, i.e. inside a syllable. A dictionary
+     * word may only start and end on a boundary, otherwise "t" + "học sinh" could beat "thọc".
      */
-    private static int[] computeNextWhitespace(int[] codepoints) {
+    private static boolean isLetterBoundary(int[] codepoints, int index) {
+        return index <= 0 || index >= codepoints.length
+                || !Character.isLetter(codepoints[index - 1]) || !Character.isLetter(codepoints[index]);
+    }
+
+    /**
+     * {@code nextNonLetter[k]} is the first index {@code >= k} holding a non-letter, or
+     * {@code codepoints.length} if none remains — precomputed once so {@link #relaxFallback}
+     * can look up a letter run's end in O(1) instead of re-scanning it from every position
+     * within the run (which degrades to O(n^2) on a single long letter run). Stopping at any
+     * non-letter, not just whitespace, keeps trailing punctuation out of a syllable edge.
+     */
+    private static int[] computeNextNonLetter(int[] codepoints) {
         int n = codepoints.length;
-        int[] nextWhitespace = new int[n + 1];
-        nextWhitespace[n] = n;
+        int[] nextNonLetter = new int[n + 1];
+        nextNonLetter[n] = n;
         for (int k = n - 1; k >= 0; k--) {
-            nextWhitespace[k] = Character.isWhitespace(codepoints[k]) ? k : nextWhitespace[k + 1];
+            nextNonLetter[k] = Character.isLetter(codepoints[k]) ? nextNonLetter[k + 1] : k;
         }
-        return nextWhitespace;
+        return nextNonLetter;
     }
 
-    private void relaxFallback(int[] codepoints, int i, double base, double[] bestScore, int[] backStart,
-            int[] backWordId, int[] nextWhitespace) {
-        relax(bestScore, backStart, backWordId, i, i + 1, OOV_WORD_ID, base + CODEPOINT_FALLBACK_PENALTY);
+    private void relaxFallback(int[] codepoints, int i, double base, int prevWordId, double[] bestScore,
+            int[] backStart, int[] backWordId, int[] contextWordId, int[] nextNonLetter) {
+        // Whitespace keeps the previous word as bigram context so "w1 w2" scores as a bigram.
+        int codepointContext = Character.isWhitespace(codepoints[i]) ? prevWordId : OOV_WORD_ID;
+        relax(bestScore, backStart, backWordId, contextWordId, i, i + 1, OOV_WORD_ID, codepointContext,
+                base + CODEPOINT_FALLBACK_PENALTY);
 
-        int end = nextWhitespace[i + 1];
+        int end = nextNonLetter[i + 1];
         if (end > i + 1 && dictionaries.syllableTrie().containsSyllable(codepoints, i, end)) {
-            relax(bestScore, backStart, backWordId, i, end, OOV_WORD_ID, base + SYLLABLE_FALLBACK_PENALTY);
+            relax(bestScore, backStart, backWordId, contextWordId, i, end, OOV_WORD_ID, OOV_WORD_ID,
+                    base + SYLLABLE_FALLBACK_PENALTY);
         }
     }
 
-    private static void relax(double[] bestScore, int[] backStart, int[] backWordId, int start, int end, int wordId,
-            double score) {
+    private static void relax(double[] bestScore, int[] backStart, int[] backWordId, int[] contextWordId, int start,
+            int end, int wordId, int context, double score) {
         if (score > bestScore[end]) {
             bestScore[end] = score;
             backStart[end] = start;
             backWordId[end] = wordId;
+            contextWordId[end] = context;
         }
     }
 
