@@ -5,7 +5,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.Normalizer;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -163,5 +168,43 @@ class VnTokenizerTest {
         manyLabels.append("com");
 
         assertDoesNotThrow(() -> t.tokenize(manyLabels.toString(), TokenizeOption.HOST));
+    }
+
+    @Test
+    void concurrentTokenizationMatchesSequentialResults() throws Exception {
+        VnTokenizer t = VnTokenizer.getInstance();
+        List<String> inputs = List.of(
+                "Xin chào Việt Nam",
+                "Tôi là học sinh, bạn là sinh viên.",
+                "xem https://a.vn/x. rồi gọi 0912345678",
+                "Hà Nội 😀 mùa thu",
+                "");
+        List<List<Token>> expected = new ArrayList<>();
+        for (String input : inputs) {
+            expected.add(t.tokenize(input, TokenizeOption.URL));
+        }
+
+        int threads = 8;
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        try {
+            List<Future<List<List<Token>>>> futures = new ArrayList<>();
+            for (int i = 0; i < threads; i++) {
+                futures.add(pool.submit(() -> {
+                    List<List<Token>> results = new ArrayList<>();
+                    for (int round = 0; round < 50; round++) {
+                        results.clear();
+                        for (String input : inputs) {
+                            results.add(t.tokenize(input, TokenizeOption.URL));
+                        }
+                    }
+                    return results;
+                }));
+            }
+            for (Future<List<List<Token>>> future : futures) {
+                assertEquals(expected, future.get(60, TimeUnit.SECONDS));
+            }
+        } finally {
+            pool.shutdownNow();
+        }
     }
 }
