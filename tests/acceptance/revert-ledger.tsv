@@ -2,3 +2,8 @@ suite	ac	verified_sha	date
 atdd_gate.bats	AC-1	dd2b974	2026-10-15
 atdd_gate.bats	AC-2	dd2b974	2026-10-15
 atdd_gate.bats	AC-3	dd2b974	2026-10-15
+ci_hardening	AC-1	9b86fe63fb0bd685962359270bdf35cbb8b6fc3e	2026-10-15
+ci_hardening	AC-2	9b86fe63fb0bd685962359270bdf35cbb8b6fc3e	2026-10-15
+ci_hardening	AC-3	9b86fe63fb0bd685962359270bdf35cbb8b6fc3e	2026-10-15
+ci_hardening	AC-4	9b86fe63fb0bd685962359270bdf35cbb8b6fc3e	2026-10-15
+ci_hardening	AC-5	9b86fe63fb0bd685962359270bdf35cbb8b6fc3e	2026-10-15
