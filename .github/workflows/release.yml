@@ -14,7 +14,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 concurrency:
   group: release-main
@@ -32,7 +31,7 @@ jobs:
         contains(github.event.pull_request.labels.*.name, 'patch')) &&
        !contains(github.event.pull_request.labels.*.name, 'skip-release')) ||
       (github.event_name == 'workflow_dispatch' && vars.RELEASE_ENABLED == 'true')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04-arm
     timeout-minutes: 10
     # Gates the whole job — not just the GPG-touching steps — behind the same reviewer
     # required for Central publish (#8). Without this, workflow_dispatch on any branch
@@ -299,7 +298,7 @@ jobs:
     name: Publish to Maven Central + upload release assets
     needs: release
     if: needs.release.outputs.created == 'true' && vars.CENTRAL_PUBLISH_ENABLED == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04-arm
     timeout-minutes: 45
     environment: central
     permissions:
@@ -347,9 +346,11 @@ jobs:
           echo "pom.xml version '$got' matches release tag '$want'"
 
       - name: Build, sign, and verify
+        # maven-gpg-plugin reads the passphrase from MAVEN_GPG_PASSPHRASE; a command-line
+        # property would expose the secret in the process list.
         env:
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: mvn -B clean verify -Prelease -Dmaven.repo.local="$RUNNER_TEMP/m2" -Dgpg.passphrase="$GPG_PASSPHRASE"
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: mvn -B clean verify -Prelease -Dmaven.repo.local="$RUNNER_TEMP/m2"
 
       - name: Assert built jar manifest matches release tag
         run: |
@@ -394,5 +395,5 @@ jobs:
         env:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: mvn -B deploy -Prelease -Dmaven.repo.local="$RUNNER_TEMP/m2" -Dgpg.passphrase="$GPG_PASSPHRASE"
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: mvn -B deploy -Prelease -Dmaven.repo.local="$RUNNER_TEMP/m2"
