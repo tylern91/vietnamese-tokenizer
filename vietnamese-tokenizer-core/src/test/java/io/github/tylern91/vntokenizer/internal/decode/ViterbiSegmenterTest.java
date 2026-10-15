@@ -23,16 +23,19 @@ class ViterbiSegmenterTest {
 
     @Test
     void bigramScorePrefersSplitOverWholeWordMatch() {
-        List<String> words = List.of("ab", "abc", "c"); // ab=0, abc=1, c=2
+        List<String> words = List.of("ab", "ab c", "c"); // ab=0, "ab c"=1, c=2
         WordTrie wordTrie = DoubleArrayTrieBuilder.buildWordTrie(words);
         SyllableTrie syllableTrie = DoubleArrayTrieBuilder.buildSyllableTrie(words);
         float[] unigramLogProb = {-1.0f, -1.0f, -1.0f}; // equal unigram cost for all three
-        Map<Long, Float> bigrams = Map.of(BigramScores.key(0, 2), 5.0f); // "ab" -> "c" strongly favored
+        // Large enough to beat the whitespace edge's -50 fallback penalty.
+        Map<Long, Float> bigrams = Map.of(BigramScores.key(0, 2), 100.0f); // "ab" -> "c" strongly favored
         Dictionaries dictionaries = new Dictionaries(wordTrie, syllableTrie, unigramLogProb, BigramScores.of(bigrams));
 
-        List<ViterbiSegmenter.Span> spans = new ViterbiSegmenter(dictionaries).segment(cp("abc"));
+        List<ViterbiSegmenter.Span> spans = new ViterbiSegmenter(dictionaries).segment(cp("ab c"));
 
-        assertEquals(List.of(new ViterbiSegmenter.Span(0, 2, 0), new ViterbiSegmenter.Span(2, 3, 2)), spans);
+        assertEquals(List.of(new ViterbiSegmenter.Span(0, 2, 0),
+                new ViterbiSegmenter.Span(2, 3, ViterbiSegmenter.OOV_WORD_ID),
+                new ViterbiSegmenter.Span(3, 4, 2)), spans);
     }
 
     @Test
