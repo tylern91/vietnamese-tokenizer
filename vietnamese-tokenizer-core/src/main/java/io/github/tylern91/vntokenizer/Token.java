@@ -17,7 +17,7 @@ public record Token(String text, Token.Type type, int start, int end) {
         WORD,
         /** A run of digit codepoints. */
         NUMBER,
-        /** A single punctuation codepoint. */
+        /** A run of punctuation codepoints; adjacent punctuation merges into one token ({@code ...}, {@code !!}). */
         PUNCT,
         /** A run of whitespace codepoints. */
         SPACE

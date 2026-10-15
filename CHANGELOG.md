@@ -39,6 +39,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `maven-javadoc-plugin` to 3.12.0 and `maven-gpg-plugin` to 3.2.8.
   `central-publishing-maven-plugin` stays at 0.11.0 until a release exercises 0.12.0.
 
+### Fixed
+
+- Bundled dictionaries now load in about 1 s instead of 22–27 s. The double-array builder restarted
+  its base search at 0 for every node, which was quadratic in the pool size; it now starts at the
+  first free slot and produces the identical trie. The 2.9 M bigram scores also live in primitive
+  arrays rather than a boxed `Map<Long, Float>`: retained heap after loading drops from about
+  303 MB to 74 MB, and the temporary full copy at load is gone.
+- Bigram context now carries across whitespace. Whitespace used to reset it, so two adjacent
+  dictionary words could never score as a bigram. The effect on real text is small until the
+  whitespace and fallback penalties are tuned: 0 of 6 sample sentences differ from an empty bigram
+  table.
+- A dictionary word can no longer start or end inside a syllable, so "thọc sinh" is no longer
+  split as `t` + `học sinh`.
+- An out-of-vocabulary syllable followed by punctuation (`Phượng,`) is now scored as one syllable
+  rather than shredded into single codepoints.
+- Token offsets of NFD input now index the original input (`Token` Javadoc always promised this);
+  they previously pointed into the normalized text, so the last token of a 13-codepoint input
+  ended at 11. Token text stays NFC.
+- `URL` mode no longer keeps trailing punctuation in the URL token (`https://a.vn/x.` is the URL
+  `https://a.vn/x` followed by `.`).
+- `VnTokenizer.getInstance(Path)` shares one instance across equivalent spellings of a directory
+  (`dicts`, `./dicts`, `dicts/x/..`) instead of loading a ~300 MB copy for each.
+- `tokenize` throws a `NullPointerException` naming the `text` or `option` parameter for a null
+  argument.
+- UD_Vietnamese-VTB word-span F1 improves from 0.894 to 0.8956 on dev and from 0.912 to 0.9163 on
+  test; the `eval-baseline.json` floor is raised to match.
+
 ### Security
 
 - `.github/workflows/release.yml`: the GPG passphrase now reaches Maven through the
