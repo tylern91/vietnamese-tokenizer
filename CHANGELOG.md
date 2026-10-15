@@ -14,11 +14,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `revert-evidence` job, backed by `scripts/check-revert-evidence.sh`, fails a pull request that
   adds an `[AC-N]` test without a ledger row. Documented in `CONTRIBUTING.md` and
   `.claude/CLAUDE.md`; `probity.config.mjs` accepts a failing `[AC-N]` test as the required red.
+- `.github/dependabot.yml`: weekly `maven` and `github-actions` update PRs, grouped by
+  minor/patch and labelled `skip-release` so they never move the pom version.
+- `tests/acceptance/ci_hardening.bats`: `[AC-1]`..`[AC-5]` acceptance tests pinning the workflow
+  hardening below, with revert evidence in `tests/acceptance/revert-ledger.tsv`.
 
 ### Changed
 
 - `.github/workflows/ci.yml`: the `shell-tests` job now runs `bats -r tests/` so the acceptance
   suites under `tests/acceptance/` run in CI.
+- `.github/workflows/*.yml`: every job now runs on `ubuntu-26.04-arm` (free for this public repo;
+  the build is pure Java, so the released jars are architecture-independent).
+- `.github/workflows/ci.yml`: the `build` job now has `timeout-minutes: 15`; it was the only job
+  without one.
+- `.github/workflows/release.yml`: dropped the unused `pull-requests: write` permission.
+- `pom.xml`: bumped `maven-compiler-plugin` to 3.16.0, `maven-surefire-plugin` and
+  `maven-failsafe-plugin` to 3.6.0, `maven-jar-plugin` to 3.5.1, `maven-source-plugin` to 3.4.0,
+  `maven-javadoc-plugin` to 3.12.0 and `maven-gpg-plugin` to 3.2.8.
+  `central-publishing-maven-plugin` stays at 0.11.0 until a release exercises 0.12.0.
+
+### Security
+
+- `.github/workflows/release.yml`: the GPG passphrase now reaches Maven through the
+  `MAVEN_GPG_PASSPHRASE` environment variable instead of a command-line property, so it no longer
+  appears in the process list.
 
 ## [0.2.2] - 2026-08-30
 
