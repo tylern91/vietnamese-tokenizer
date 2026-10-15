@@ -126,6 +126,9 @@ public final class DoubleArrayTrieBuilder {
         int[] parent = new int[4];
         Arrays.fill(parent, -1);
         int poolSize = 1;
+        // Lowest slot not yet claimed; every slot below it is occupied, so no base placing the
+        // first child there can fit. Slot 0 is the root.
+        int firstFree = 1;
 
         Queue<OrdinaryNode> queue = new ArrayDeque<>();
         queue.add(root);
@@ -140,7 +143,7 @@ public final class DoubleArrayTrieBuilder {
             List<Integer> mappedValues = new ArrayList<>(cur.children.keySet());
             int maxMapped = Collections.max(mappedValues);
 
-            int b = 0;
+            int b = Math.max(0, firstFree - Collections.min(mappedValues));
             while (true) {
                 int maxTarget = b + maxMapped;
                 if (maxTarget >= base.length) {
@@ -173,6 +176,9 @@ public final class DoubleArrayTrieBuilder {
                 slotOf.put(e.getValue(), t);
                 poolSize = Math.max(poolSize, t + 1);
                 queue.add(e.getValue());
+            }
+            while (firstFree < parent.length && parent[firstFree] != -1) {
+                firstFree++;
             }
         }
 
