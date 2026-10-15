@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -60,7 +61,7 @@ public final class VnTokenizer {
      * @return the shared instance for {@code dictDir}
      */
     public static VnTokenizer getInstance(Path dictDir) {
-        return CACHE.computeIfAbsent(dictDir, k -> new VnTokenizer(DictLoader.load(dictDir)));
+        return CACHE.computeIfAbsent(dictDir.toAbsolutePath().normalize(), k -> new VnTokenizer(DictLoader.load(k)));
     }
 
     /**
@@ -81,6 +82,8 @@ public final class VnTokenizer {
      * @return the resulting tokens, in input order
      */
     public List<Token> tokenize(String text, TokenizeOption option) {
+        Objects.requireNonNull(text, "text");
+        Objects.requireNonNull(option, "option");
         int[] normalized = VnNormalizer.normalize(text.codePoints().toArray());
         return switch (option) {
             case NORMAL -> segmentRange(normalized, 0, normalized.length);
