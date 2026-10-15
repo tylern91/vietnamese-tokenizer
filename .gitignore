@@ -43,3 +43,7 @@ vietnamese-tokenizer-dicts/raw-corpus/
 
 # Phase 4: compiled output of the one-off dicts generator (not wired into any pom.xml build)
 vietnamese-tokenizer-dicts/generator/out/
+
+# Segmentation eval data (UD_Vietnamese-VTB, CC BY-SA 4.0): fetched by scripts/fetch-eval-data.sh,
+# never committed or packaged. Attribution: docs/eval-data-NOTICE.md.
+eval-data/
