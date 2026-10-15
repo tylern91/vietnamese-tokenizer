@@ -1,0 +1,4 @@
+suite	ac	verified_sha	date
+atdd_gate.bats	AC-1	dd2b974	2026-10-15
+atdd_gate.bats	AC-2	dd2b974	2026-10-15
+atdd_gate.bats	AC-3	dd2b974	2026-10-15
