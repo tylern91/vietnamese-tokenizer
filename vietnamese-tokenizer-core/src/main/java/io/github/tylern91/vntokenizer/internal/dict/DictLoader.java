@@ -89,7 +89,7 @@ public final class DictLoader {
             unigramLogProb[i] = (float) Math.log(counts.get(i) / (double) total);
         }
 
-        Map<Long, Float> bigramScores = new HashMap<>();
+        BigramScores.Builder bigramScores = BigramScores.builder();
         while ((line = bigramsReader.readLine()) != null) {
             int firstTab = line.indexOf('\t');
             int secondTab = firstTab < 0 ? -1 : line.indexOf('\t', firstTab + 1);
@@ -103,12 +103,12 @@ public final class DictLoader {
                 continue;
             }
             double pmi = Math.log(bigramCount / (double) counts.get(prevId)) - unigramLogProb[nextId];
-            bigramScores.put(BigramScores.key(prevId, nextId), (float) pmi);
+            bigramScores.put(prevId, nextId, (float) pmi);
         }
 
         WordTrie wordTrie = DoubleArrayTrieBuilder.buildWordTrie(words);
         SyllableTrie syllableTrie = DoubleArrayTrieBuilder.buildSyllableTrie(syllables);
-        return new Dictionaries(wordTrie, syllableTrie, unigramLogProb, BigramScores.of(bigramScores));
+        return new Dictionaries(wordTrie, syllableTrie, unigramLogProb, bigramScores.build());
     }
 
     private static long parseCount(String line, String field) {
