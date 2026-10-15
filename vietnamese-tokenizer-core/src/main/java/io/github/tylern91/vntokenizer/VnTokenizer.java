@@ -37,6 +37,9 @@ public final class VnTokenizer {
     private static final Pattern HOST_PATTERN =
             Pattern.compile("\\b(?:[a-zA-Z0-9-]{1,63}\\.){1,127}[a-zA-Z]{2,63}\\b");
 
+    // Punctuation that \S+ swallows from the end of a URL in running text ("see https://a.vn/x.").
+    private static final String URL_TRAILING_PUNCT = ".,;:!?)]}'\"";
+
     private final Dictionaries dictionaries;
     private final ViterbiSegmenter segmenter;
 
@@ -119,10 +122,14 @@ public final class VnTokenizer {
         List<Token> tokens = new ArrayList<>();
         int cursor = 0;
         while (matcher.find()) {
+            int matchEnd = matcher.end();
+            while (matchEnd > matcher.start() && URL_TRAILING_PUNCT.indexOf(text.charAt(matchEnd - 1)) >= 0) {
+                matchEnd--;
+            }
             int start = text.codePointCount(0, matcher.start());
-            int end = text.codePointCount(0, matcher.end());
+            int end = text.codePointCount(0, matchEnd);
             tokens.addAll(segmentRange(normalized, cursor, start));
-            tokens.add(new Token(matcher.group(), Token.Type.WORD, start, end));
+            tokens.add(new Token(text.substring(matcher.start(), matchEnd), Token.Type.WORD, start, end));
             cursor = end;
         }
         tokens.addAll(segmentRange(normalized, cursor, normalized.length));
