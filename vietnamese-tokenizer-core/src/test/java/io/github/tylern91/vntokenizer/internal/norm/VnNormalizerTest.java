@@ -92,6 +92,19 @@ class VnNormalizerTest {
     }
 
     @Test
+    void normalizeWithOffsetsMapsEachNormalizedCodepointBackToItsOriginalStart() {
+        // "ệ" decomposed as e + dot-below + circumflex (3 codepoints) composes to 1; 'x' stays 1.
+        int[] input = {'x', 'e', 0x0323, 0x0302, 'x'};
+
+        VnNormalizer.Normalized result = VnNormalizer.normalizeWithOffsets(input);
+
+        assertEquals("xệx", toStr(result.codepoints()));
+        // origOffset[i] = original index where normalized codepoint i starts; the last entry is
+        // the original length, so a token's end maps like any other boundary.
+        assertArrayEquals(new int[]{0, 1, 4, 5}, result.origOffset());
+    }
+
+    @Test
     void invalidHatComboLeavesMarkUnconsumed() {
         // 'i' has no valid hat mark — the horn mark should pass through untouched
         int[] input = {'i', 0x031B};
