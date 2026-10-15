@@ -116,4 +116,19 @@ class ViterbiSegmenterTest {
         assertTimeoutPreemptively(Duration.ofSeconds(2),
                 () -> new ViterbiSegmenter(dictionaries).segment(longOovRun));
     }
+
+    @Test
+    void oovSyllableFollowedByCommaIsOneSpanAndTheCommaIsSeparate() {
+        List<String> words = List.of("ab");
+        WordTrie wordTrie = DoubleArrayTrieBuilder.buildWordTrie(words);
+        SyllableTrie syllableTrie = DoubleArrayTrieBuilder.buildSyllableTrie(List.of("phượng"));
+        float[] unigramLogProb = {-1.0f};
+        Dictionaries dictionaries = new Dictionaries(wordTrie, syllableTrie, unigramLogProb, BigramScores.empty());
+
+        List<ViterbiSegmenter.Span> spans = new ViterbiSegmenter(dictionaries).segment(cp("phượng,"));
+
+        assertEquals(List.of(
+                new ViterbiSegmenter.Span(0, 6, ViterbiSegmenter.OOV_WORD_ID),
+                new ViterbiSegmenter.Span(6, 7, ViterbiSegmenter.OOV_WORD_ID)), spans);
+    }
 }
