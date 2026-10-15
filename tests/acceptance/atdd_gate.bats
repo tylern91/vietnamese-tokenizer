@@ -32,12 +32,15 @@ commit_all() {
   git -C "$WORK" commit -q -m "$1"
 }
 
-add_acceptance_tests() {
-  cat > "$WORK/tests/acceptance/demo.bats" <<'BATS'
-@test "[AC-1] demo behaves" {
-  true
+# write_bats_case <file> <test-name>
+# The keyword is passed as a printf argument: bats' preprocessor rewrites any line that starts
+# with it, including inside a heredoc.
+write_bats_case() {
+  printf '%s "%s" {\n  true\n}\n' '@test' "$2" > "$1"
 }
-BATS
+
+add_acceptance_tests() {
+  write_bats_case "$WORK/tests/acceptance/demo.bats" "[AC-1] demo behaves"
   cat > "$WORK/$JAVA_DIR/DemoAcceptanceTest.java" <<'JAVA'
 class DemoAcceptanceTest {
   @DisplayName("[AC-1] demo behaves")
@@ -47,7 +50,7 @@ JAVA
 }
 
 run_gate() {
-  cd "$WORK"
+  cd "$WORK" || return 1
   run bash "$SCRIPT" main tests/acceptance/revert-ledger.tsv
 }
 
@@ -72,17 +75,9 @@ run_gate() {
 }
 
 @test "[AC-3] skips when no [AC-N] test was added" {
-  cat > "$WORK/tests/acceptance/plain.bats" <<'BATS'
-@test "plain behaviour" {
-  true
-}
-BATS
+  write_bats_case "$WORK/tests/acceptance/plain.bats" "plain behaviour"
   # An [AC-N] outside the acceptance directories is not subject to the gate.
-  cat > "$WORK/tests/other.bats" <<'BATS'
-@test "[AC-9] not an acceptance suite" {
-  true
-}
-BATS
+  write_bats_case "$WORK/tests/other.bats" "[AC-9] not an acceptance suite"
   commit_all "no acs"
   run_gate
   [ "$status" -eq 0 ]
