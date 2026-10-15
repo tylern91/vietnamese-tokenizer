@@ -10,3 +10,11 @@ ci_hardening.bats	AC-5	9b86fe63fb0bd685962359270bdf35cbb8b6fc3e	2026-10-15
 SegmentationEvalAcceptanceTest.java	AC-1	5955255dbf5c24373d0467aa3ab0160c680361bf	2026-10-15
 SegmentationEvalAcceptanceTest.java	AC-2	5955255dbf5c24373d0467aa3ab0160c680361bf	2026-10-15
 SegmentationEvalAcceptanceTest.java	AC-3	5955255dbf5c24373d0467aa3ab0160c680361bf	2026-10-15
+LoadAcceptanceTest.java	AC-1	ee290c0372b22d0ea627082dc9d7ef538d58484a	2026-10-16
+SegmentationAcceptanceTest.java	AC-2	2198a0aff488219a0c984d0b98e7602dbf75a73a	2026-10-16
+SegmentationAcceptanceTest.java	AC-3	2198a0aff488219a0c984d0b98e7602dbf75a73a	2026-10-16
+OffsetsAcceptanceTest.java	AC-4	9c2f984ea21efe1469a473ef2f47a4c7f6316a64	2026-10-16
+OffsetsAcceptanceTest.java	AC-5	9c2f984ea21efe1469a473ef2f47a4c7f6316a64	2026-10-16
+UrlHostAcceptanceTest.java	AC-6	7f56cbe789525468ba482aeb4a32fb8904a49b98	2026-10-16
+InstanceAcceptanceTest.java	AC-7	efd04df8795c2c46a57527298ad2b89b46cfa716	2026-10-16
+InstanceAcceptanceTest.java	AC-8	efd04df8795c2c46a57527298ad2b89b46cfa716	2026-10-16
