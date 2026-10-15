@@ -46,13 +46,23 @@ public final class VnNormalizer {
 
     private VnNormalizer() {}
 
-    public static int[] normalize(int[] codepoints) {
+    /**
+     * Normalized codepoints plus {@code origOffset}, where {@code origOffset[i]} is the index in
+     * the original input at which normalized codepoint {@code i} starts and the last entry is the
+     * original length.
+     */
+    public record Normalized(int[] codepoints, int[] origOffset) {
+    }
+
+    public static Normalized normalizeWithOffsets(int[] codepoints) {
         int[] out = new int[codepoints.length];
+        int[] origOffset = new int[codepoints.length + 1];
         int outLen = 0;
         int i = 0;
         while (i < codepoints.length) {
             int row = rowOf(codepoints[i]);
             if (row < 0) {
+                origOffset[outLen] = i;
                 out[outLen++] = codepoints[i];
                 i++;
                 continue;
@@ -97,10 +107,16 @@ public final class VnNormalizer {
                 }
             }
 
+            origOffset[outLen] = i;
             out[outLen++] = TONE_FORMS[currentRow][toneIdx];
             i += consumed;
         }
-        return Arrays.copyOf(out, outLen);
+        origOffset[outLen] = codepoints.length;
+        return new Normalized(Arrays.copyOf(out, outLen), Arrays.copyOf(origOffset, outLen + 1));
+    }
+
+    public static int[] normalize(int[] codepoints) {
+        return normalizeWithOffsets(codepoints).codepoints();
     }
 
     private static int rowOf(int codepoint) {

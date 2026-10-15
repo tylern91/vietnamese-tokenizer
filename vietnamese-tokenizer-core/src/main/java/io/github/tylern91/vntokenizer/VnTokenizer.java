@@ -87,12 +87,27 @@ public final class VnTokenizer {
     public List<Token> tokenize(String text, TokenizeOption option) {
         Objects.requireNonNull(text, "text");
         Objects.requireNonNull(option, "option");
-        int[] normalized = VnNormalizer.normalize(text.codePoints().toArray());
-        return switch (option) {
+        VnNormalizer.Normalized norm = VnNormalizer.normalizeWithOffsets(text.codePoints().toArray());
+        int[] normalized = norm.codepoints();
+        List<Token> tokens = switch (option) {
             case NORMAL -> segmentRange(normalized, 0, normalized.length);
             case HOST -> segmentWithAtoms(normalized, HOST_PATTERN);
             case URL -> segmentWithAtoms(normalized, URL_PATTERN);
         };
+        return toOriginalOffsets(tokens, norm.origOffset());
+    }
+
+    /**
+     * Token offsets are computed against the NFC-normalized text; maps them back so they index the
+     * caller's original input (which differs in length when it was NFD). Token text stays NFC.
+     */
+    private static List<Token> toOriginalOffsets(List<Token> tokens, int[] origOffset) {
+        List<Token> mapped = new ArrayList<>(tokens.size());
+        for (Token token : tokens) {
+            mapped.add(new Token(token.text(), token.type(),
+                    origOffset[token.start()], origOffset[token.end()]));
+        }
+        return mapped;
     }
 
     /**
