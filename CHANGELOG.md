@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- ATDD process: acceptance tests named `[AC-N]` (JUnit `*AcceptanceTest` classes and BATS files in
+  `tests/acceptance/`) with a revert ledger, `tests/acceptance/revert-ledger.tsv`. A new CI
+  `revert-evidence` job, backed by `scripts/check-revert-evidence.sh`, fails a pull request that
+  adds an `[AC-N]` test without a ledger row. Documented in `CONTRIBUTING.md` and
+  `.claude/CLAUDE.md`; `probity.config.mjs` accepts a failing `[AC-N]` test as the required red.
+
+### Changed
+
+- `.github/workflows/ci.yml`: the `shell-tests` job now runs `bats -r tests/` so the acceptance
+  suites under `tests/acceptance/` run in CI.
+
 ## [0.2.2] - 2026-08-30
 
 ### Changed

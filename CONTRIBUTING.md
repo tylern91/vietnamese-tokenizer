@@ -39,10 +39,40 @@ Do **not** add `-pl vietnamese-tokenizer-core` to that command: `-pl` excludes
 `dicts` was `install`ed to `~/.m2` beforehand. Running from the repo root with no `-pl` avoids
 that — `dicts` has no test sources, so the `-Dtest` filter simply doesn't touch it.
 
+## Acceptance tests (ATDD)
+
+Work starts from acceptance criteria (ACs). Each AC becomes one test named `[AC-N] ...`, written
+and seen to fail before any implementation:
+
+1. **Discuss**: agree the numbered AC list.
+2. **Distill**: write one `[AC-N]` test per AC and confirm each fails for the right reason.
+   - Java library behavior: a JUnit 5 `*AcceptanceTest` class under
+     `vietnamese-tokenizer-core/src/test/java/io/github/tylern91/vntokenizer/acceptance/`, with
+     `@DisplayName("[AC-N] ...")` on each `@Test`. Run it with
+     `mvn -q -Dtest='*AcceptanceTest' test`.
+   - Scripts and workflows: a BATS file in `tests/acceptance/` with `@test "[AC-N] ..."` names.
+     Run all shell tests with `bats -r tests/`.
+3. **Develop**: the minimal change that turns them green. Below the acceptance tier, add a unit
+   test only where it guards a branch no AC reaches.
+4. **Demo**: revert-verify each AC and record it in `tests/acceptance/revert-ledger.tsv`.
+
+Revert-verify without `git stash`, after committing the implementation:
+
+```bash
+git checkout HEAD~1 -- <implementation files>   # the AC must FAIL
+git checkout HEAD -- <implementation files>     # the AC must PASS again
+```
+
+Then append one row per AC to the ledger (tab-separated: `suite`, `ac`, `verified_sha`, `date`),
+where `suite` is the test file's basename and `verified_sha` is the implementation commit. CI's
+`revert-evidence` job (`scripts/check-revert-evidence.sh`) fails a pull request that adds an
+`[AC-N]` test with no matching row.
+
 ## TDD gate
 
 Writes to `**/src/main/java/**` are gated by Probity's `enforceTdd()`: a failing JUnit test must
-already exist before the corresponding main-source class can be written (red before green).
+already exist before the corresponding main-source class can be written (red before green). A
+failing `[AC-N]` acceptance test counts as that red.
 Test-file writes are never gated. A brand-new symbol typically needs a compiling stub first
 (e.g. `throw new UnsupportedOperationException()`) to reach a clean red, then the real
 implementation as a second change. Replacing the body of a method that already exists and

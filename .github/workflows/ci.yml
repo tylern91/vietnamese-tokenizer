@@ -75,7 +75,25 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y bats
 
       - name: Run bats
-        run: bats tests/
+        run: bats -r tests/
+
+  # Every added [AC-N] acceptance test must carry a tests/acceptance/revert-ledger.tsv row.
+  revert-evidence:
+    name: Revert evidence
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-26.04-arm
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Fetch the base branch
+        run: git fetch --no-tags -q origin main
+
+      - name: Enforce revert evidence for new [AC-N] tests
+        run: bash scripts/check-revert-evidence.sh
 
   build:
     name: Build and test

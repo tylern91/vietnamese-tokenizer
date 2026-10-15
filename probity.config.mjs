@@ -22,6 +22,11 @@ const tddProjectFacts = (defaults) => `${defaults}
    run from the repo root. Do not add -pl vietnamese-tokenizer-core -- that
    excludes vietnamese-tokenizer-dicts from the reactor and forces a
    repository lookup that fails unless dicts was installed to ~/.m2 first.
+7. A failing [AC-N] acceptance test (a *AcceptanceTest class with
+   @DisplayName("[AC-N] ...")) that fails for the right reason counts as the
+   required red. Acceptance tests live in
+   vietnamese-tokenizer-core/src/test/java/io/github/tylern91/vntokenizer/acceptance/
+   and are run with: mvn -q -Dtest='*AcceptanceTest' test
 `
 
 export default defineConfig({

@@ -34,12 +34,37 @@ Do **not** add `-pl vietnamese-tokenizer-core` to that command: `-pl` excludes
 no `-pl` avoids that — `dicts` has no test sources, so the `-Dtest` filter
 simply doesn't touch it.
 
-## TDD (Probity)
+## ATDD
+
+Acceptance criteria (ACs) drive the work: one `[AC-N]` test per AC, written and seen RED before
+any implementation. Cycle: Discuss (the AC list) -> Distill (write the `[AC-N]` tests, confirm
+RED for the right reason) -> Develop (minimal implementation) -> Demo (green, revert-verified,
+ledger row).
+
+- **Library ACs** are JUnit 5 `*AcceptanceTest` classes in
+  `vietnamese-tokenizer-core/src/test/java/io/github/tylern91/vntokenizer/acceptance/`, one
+  `@Test` per AC with `@DisplayName("[AC-N] ...")`. Run them with
+  `mvn -q -Dtest='*AcceptanceTest' test` (repo root, no `-pl`).
+- **Script and workflow ACs** are BATS files in `tests/acceptance/<slug>.bats` with
+  `@test "[AC-N] ..."` names. Run everything with `bats -r tests/`.
+- **Revert ledger**: every AC needs a row in `tests/acceptance/revert-ledger.tsv` (`suite`, `ac`,
+  `verified_sha`, `date`; suite is the test file's basename). CI's `revert-evidence` job runs
+  `scripts/check-revert-evidence.sh` and fails a PR that adds an `[AC-N]` test with no row.
+- **Below the acceptance tier**, write a unit test only where it guards a branch no AC reaches.
+
+Revert-verify each AC without `git stash`, after committing the implementation:
+
+1. `git checkout HEAD~1 -- <impl files>` and confirm the AC FAILs.
+2. `git checkout HEAD -- <impl files>` and confirm it PASSes.
+3. Append the ledger row, with the implementation commit's sha as `verified_sha`.
+
+## TDD gate (Probity)
 
 Writes to `**/src/main/java/**` are gated by Probity's `enforceTdd()`: a
 failing JUnit test must already exist in the session transcript before the
-corresponding main-source class can be written (red before green). Test-file
-writes are never gated. Config: `probity.config.mjs`.
+corresponding main-source class can be written (red before green). A failing
+`[AC-N]` acceptance test that fails for the right reason is that red.
+Test-file writes are never gated. Config: `probity.config.mjs`.
 
 Three things the gate itself can't enforce:
 
