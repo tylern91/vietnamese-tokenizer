@@ -38,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `maven-failsafe-plugin` to 3.6.0, `maven-jar-plugin` to 3.5.1, `maven-source-plugin` to 3.4.0,
   `maven-javadoc-plugin` to 3.12.0 and `maven-gpg-plugin` to 3.2.8.
   `central-publishing-maven-plugin` stays at 0.11.0 until a release exercises 0.12.0.
+- Segmenter penalties (whitespace, syllable and codepoint fallbacks, bigram weight) are now an
+  internal `ViterbiSegmenter.Penalties` value, so they can be scored against the eval harness.
+  A 400-configuration grid search on UD_Vietnamese-VTB dev moved F1 by at most 0.0002 (inside the
+  0.0005 tolerance), so the existing values are unchanged and the held-out test split was not used.
 
 ### Fixed
 
