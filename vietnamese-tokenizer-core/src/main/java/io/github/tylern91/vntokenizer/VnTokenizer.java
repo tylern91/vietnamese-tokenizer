@@ -44,8 +44,13 @@ public final class VnTokenizer {
     private final ViterbiSegmenter segmenter;
 
     private VnTokenizer(Dictionaries dictionaries) {
+        this(dictionaries, ViterbiSegmenter.Penalties.DEFAULT);
+    }
+
+    /** Package-private so tests and tuning tools can score alternative penalties. */
+    VnTokenizer(Dictionaries dictionaries, ViterbiSegmenter.Penalties penalties) {
         this.dictionaries = dictionaries;
-        this.segmenter = new ViterbiSegmenter(dictionaries);
+        this.segmenter = new ViterbiSegmenter(dictionaries, penalties);
     }
 
     /**

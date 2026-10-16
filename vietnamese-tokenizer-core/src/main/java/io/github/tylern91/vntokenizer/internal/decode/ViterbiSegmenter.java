@@ -40,8 +40,29 @@ public final class ViterbiSegmenter {
 
     private final Dictionaries dictionaries;
 
+    private final Penalties penalties;
+
     public ViterbiSegmenter(Dictionaries dictionaries) {
+        this(dictionaries, Penalties.DEFAULT);
+    }
+
+    /**
+     * Edge scores of the OOV fallbacks and the weight of the bigram bonus.
+     *
+     * @param whitespace  score of the edge that consumes one whitespace codepoint
+     * @param syllable    score of an OOV edge spanning a recognized syllable
+     * @param codepoint   score of any other single-codepoint OOV edge
+     * @param bigramWeight multiplier applied to every bigram score
+     */
+    public record Penalties(double whitespace, double syllable, double codepoint, double bigramWeight) {
+
+        public static final Penalties DEFAULT = new Penalties(
+                CODEPOINT_FALLBACK_PENALTY, SYLLABLE_FALLBACK_PENALTY, CODEPOINT_FALLBACK_PENALTY, 1.0);
+    }
+
+    public ViterbiSegmenter(Dictionaries dictionaries, Penalties penalties) {
         this.dictionaries = dictionaries;
+        this.penalties = penalties;
     }
 
     public List<Span> segment(int[] codepoints) {
@@ -72,7 +93,7 @@ public final class ViterbiSegmenter {
                     return;
                 }
                 double score = base + dictionaries.unigramLogProb(wordId)
-                        + dictionaries.bigramScores().score(prevWordId, wordId);
+                        + penalties.bigramWeight() * dictionaries.bigramScores().score(prevWordId, wordId);
                 relax(bestScore, backStart, backWordId, contextWordId, pos, end, wordId, wordId, score);
             });
 
@@ -112,14 +133,15 @@ public final class ViterbiSegmenter {
     private void relaxFallback(int[] codepoints, int i, double base, int prevWordId, double[] bestScore,
             int[] backStart, int[] backWordId, int[] contextWordId, int[] nextNonLetter) {
         // Whitespace keeps the previous word as bigram context so "w1 w2" scores as a bigram.
-        int codepointContext = Character.isWhitespace(codepoints[i]) ? prevWordId : OOV_WORD_ID;
+        boolean whitespace = Character.isWhitespace(codepoints[i]);
+        int codepointContext = whitespace ? prevWordId : OOV_WORD_ID;
         relax(bestScore, backStart, backWordId, contextWordId, i, i + 1, OOV_WORD_ID, codepointContext,
-                base + CODEPOINT_FALLBACK_PENALTY);
+                base + (whitespace ? penalties.whitespace() : penalties.codepoint()));
 
         int end = nextNonLetter[i + 1];
         if (end > i + 1 && dictionaries.syllableTrie().containsSyllable(codepoints, i, end)) {
             relax(bestScore, backStart, backWordId, contextWordId, i, end, OOV_WORD_ID, OOV_WORD_ID,
-                    base + SYLLABLE_FALLBACK_PENALTY);
+                    base + penalties.syllable());
         }
     }
 
