@@ -1,5 +1,8 @@
 package io.github.tylern91.vntokenizer;
 
+import io.github.tylern91.vntokenizer.internal.decode.ViterbiSegmenter;
+import io.github.tylern91.vntokenizer.internal.dict.DictLoader;
+import io.github.tylern91.vntokenizer.internal.dict.Dictionaries;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -34,6 +37,20 @@ class VnTokenizerTest {
     @AfterAll
     void resetCache() {
         VnTokenizer.resetInstances();
+    }
+
+    @Test
+    void penaltiesPassedToTheConstructorReachTheSegmenter(@TempDir Path dir) throws IOException {
+        Files.write(dir.resolve("words.txt"), List.of("học\t30", "học sinh\t5", "sinh\t20"), StandardCharsets.UTF_8);
+        Files.write(dir.resolve("syllables.txt"), List.of("học", "sinh"), StandardCharsets.UTF_8);
+        Files.write(dir.resolve("bigrams.txt"), List.of(), StandardCharsets.UTF_8);
+        Dictionaries dictionaries = DictLoader.load(dir);
+
+        VnTokenizer defaults = new VnTokenizer(dictionaries, ViterbiSegmenter.Penalties.DEFAULT);
+        VnTokenizer freeSpaces = new VnTokenizer(dictionaries, new ViterbiSegmenter.Penalties(0.0, -25.0, -50.0, 1.0));
+
+        assertEquals(List.of("học sinh"), defaults.tokenizeToStrings("học sinh"));
+        assertEquals(List.of("học", " ", "sinh"), freeSpaces.tokenizeToStrings("học sinh"));
     }
 
     @Test

@@ -39,6 +39,54 @@ class ViterbiSegmenterTest {
     }
 
     @Test
+    void whitespacePenaltyDecidesWhetherASpaceSplitBeatsAMultiSyllableWord() {
+        List<String> words = List.of("ab", "ab c", "c"); // ab=0, "ab c"=1, c=2
+        WordTrie wordTrie = DoubleArrayTrieBuilder.buildWordTrie(words);
+        SyllableTrie syllableTrie = DoubleArrayTrieBuilder.buildSyllableTrie(words);
+        float[] unigramLogProb = {-1.0f, -10.0f, -1.0f}; // the whole word is the least likely
+        Dictionaries dictionaries = new Dictionaries(wordTrie, syllableTrie, unigramLogProb, BigramScores.empty());
+
+        List<ViterbiSegmenter.Span> defaults = new ViterbiSegmenter(dictionaries).segment(cp("ab c"));
+        List<ViterbiSegmenter.Span> freeSpaces = new ViterbiSegmenter(dictionaries,
+                new ViterbiSegmenter.Penalties(0.0, -25.0, -50.0, 1.0)).segment(cp("ab c"));
+
+        assertEquals(List.of(new ViterbiSegmenter.Span(0, 4, 1)), defaults);
+        assertEquals(List.of(new ViterbiSegmenter.Span(0, 2, 0),
+                new ViterbiSegmenter.Span(2, 3, ViterbiSegmenter.OOV_WORD_ID),
+                new ViterbiSegmenter.Span(3, 4, 2)), freeSpaces);
+    }
+
+    @Test
+    void bigramWeightZeroIgnoresBigramScores() {
+        List<String> words = List.of("ab", "ab c", "c"); // ab=0, "ab c"=1, c=2
+        WordTrie wordTrie = DoubleArrayTrieBuilder.buildWordTrie(words);
+        SyllableTrie syllableTrie = DoubleArrayTrieBuilder.buildSyllableTrie(words);
+        float[] unigramLogProb = {-1.0f, -1.0f, -1.0f};
+        BigramScores bigrams = BigramScores.of(Map.of(BigramScores.key(0, 2), 100.0f));
+        Dictionaries dictionaries = new Dictionaries(wordTrie, syllableTrie, unigramLogProb, bigrams);
+
+        List<ViterbiSegmenter.Span> spans = new ViterbiSegmenter(dictionaries,
+                new ViterbiSegmenter.Penalties(-50.0, -25.0, -50.0, 0.0)).segment(cp("ab c"));
+
+        assertEquals(List.of(new ViterbiSegmenter.Span(0, 4, 1)), spans);
+    }
+
+    @Test
+    void fallbackPenaltiesDecideBetweenASyllableEdgeAndSingleCodepoints() {
+        WordTrie wordTrie = DoubleArrayTrieBuilder.buildWordTrie(List.of("aa"));
+        SyllableTrie syllableTrie = DoubleArrayTrieBuilder.buildSyllableTrie(List.of("zz"));
+        Dictionaries dictionaries = new Dictionaries(wordTrie, syllableTrie, new float[]{-1.0f}, BigramScores.empty());
+
+        List<ViterbiSegmenter.Span> defaults = new ViterbiSegmenter(dictionaries).segment(cp("zz"));
+        List<ViterbiSegmenter.Span> cheapCodepoints = new ViterbiSegmenter(dictionaries,
+                new ViterbiSegmenter.Penalties(-50.0, -60.0, -10.0, 1.0)).segment(cp("zz"));
+
+        assertEquals(List.of(new ViterbiSegmenter.Span(0, 2, ViterbiSegmenter.OOV_WORD_ID)), defaults);
+        assertEquals(List.of(new ViterbiSegmenter.Span(0, 1, ViterbiSegmenter.OOV_WORD_ID),
+                new ViterbiSegmenter.Span(1, 2, ViterbiSegmenter.OOV_WORD_ID)), cheapCodepoints);
+    }
+
+    @Test
     void wholeWordWinsWhenNoBigramBoostsTheSplit() {
         List<String> words = List.of("ab", "abc", "c"); // ab=0, abc=1, c=2
         WordTrie wordTrie = DoubleArrayTrieBuilder.buildWordTrie(words);
